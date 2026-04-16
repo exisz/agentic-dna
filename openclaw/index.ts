@@ -44,7 +44,7 @@ DNA is the governing knowledge system. Before writing anything, know where it be
 Key: if it's universal wisdom → philosophy. If it's an actionable rule → convention. If it's agent-specific → TOOLS.md or dna.yaml.
 </openclaw-dna-guide>`;
 
-const CRON_POLICY = `<imperial-cron-policy>
+const CRON_POLICY = `<openclaw-cron-policy>
 ## Cron Session Rules (MANDATORY — you are running as a scheduled cron job)
 
 ⛔ **NO subagents. Ever.**
@@ -60,9 +60,9 @@ const CRON_POLICY = `<imperial-cron-policy>
 📋 **Reply discipline.**
 - End your session with a brief summary of what was done (for the cron announce delivery).
 - Do not output NO_REPLY in cron sessions unless there is truly nothing to report.
-</imperial-cron-policy>`;
+</openclaw-cron-policy>`;
 
-const INTERACTIVE_POLICY = `<imperial-work-policy>
+const INTERACTIVE_POLICY = `<openclaw-work-policy>
 ## Work Execution Policy (non-cron sessions)
 
 🔀 **Prefer subagents for implementation work.**
@@ -70,7 +70,7 @@ const INTERACTIVE_POLICY = `<imperial-work-policy>
 - Do the thinking, planning, and analysis yourself. Delegate the doing.
 - This keeps your context clean and lets you orchestrate rather than execute.
 - Exception: trivial one-shot tasks (single file edit, quick lookup) can be done directly.
-</imperial-work-policy>`;
+</openclaw-work-policy>`;
 
 // ─── Plugin Registration ────────────────────────────────────
 

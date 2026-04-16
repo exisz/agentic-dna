@@ -1,11 +1,11 @@
 ---
 name: dna
-description: "DNA — an agent governing knowledge system. Core modules: spec (GBTD), philosophy (structured wisdom), convention (actionable rules), workflow (git/CI/deploy paradigms), adaptive-cron (dynamic frequency), inbox (agent message routing). Unified CLI: `dna`. Triggers on: spec, dna.yaml, GBTD, philosophy, convention, workflow, git workflow, branching strategy, dna, adaptive cron, dynamic cron, cron up, cron down."
+description: "DNA — an agent governing knowledge system. Core modules: spec (GBTD), philosophy (structured wisdom), convention (actionable rules), workflow (git/CI/deploy paradigms), inbox (agent message routing). Unified CLI: `dna`. Triggers on: spec, dna.yaml, GBTD, philosophy, convention, workflow, git workflow, branching strategy, dna."
 ---
 
 # DNA — Agent Governance System
 
-A governing knowledge system for autonomous agents. Six modules, one CLI.
+A governing knowledge system for autonomous agents. Five modules, one CLI.
 
 ## Modules
 
@@ -15,7 +15,6 @@ A governing knowledge system for autonomous agents. Six modules, one CLI.
 | `philosophy` | `references/philosophy.md` | Structured wisdom database with slug-based entries | When you need a guiding principle |
 | `convention` | `references/convention.md` | Actionable rules — global and local (agent dna.yaml) | When you need a specific "use X not Y" rule |
 | `workflow` | `references/workflow.md` | Git/CI/deploy paradigms — branching, PR, QA gates, merge authority | Setting up project git/deploy workflow |
-| `adaptive-cron` | `references/adaptive-cron.md` | Self-adjusting cron frequency based on workload | Setting up adaptive/dynamic cron schedules |
 | `inbox` | (data directory) | Agent inbox system — per-source response guides | When checking or responding to inbox items |
 
 ## dna.yaml — Agent DNA
@@ -73,8 +72,6 @@ dna tool <name> --spec                  # Read tool's spec.md
 # ── Cron ──────────────────────────────────
 dna cron investigate --agent <id> --last 10
 dna cron investigate --agent <id> --session <SID>
-dna cron up <cron_id>
-dna cron down <cron_id>
 
 # ── Philosophy (slug IDs) ─────────────────
 dna philosophy --list                           # List all entries
