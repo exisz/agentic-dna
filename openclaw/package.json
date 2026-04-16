@@ -4,6 +4,7 @@
   "type": "module",
   "description": "DNA governance system — OpenClaw plugin for agentic-dna",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/exisz/agentic-dna/tree/main/openclaw#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/exisz/agentic-dna",
