@@ -80,11 +80,13 @@ case "$subcmd" in
     ;;
   *)
     # Fallback: try tool routing (e.g. dna cron → dna tool cron)
-    node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" "$subcmd" "$@" 2>/dev/null
-    if [ $? -ne 0 ]; then
+    node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" --run "$subcmd" "$@"
+    _exit=$?
+    if [ $_exit -eq 127 ]; then
       echo "Unknown subcommand: $subcmd" >&2
       echo "Run 'dna help' for usage." >&2
       exit 1
     fi
+    exit $_exit
     ;;
 esac

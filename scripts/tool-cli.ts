@@ -77,7 +77,12 @@ Usage:
     dna tool <name> --spec               Show spec document
     dna tool <name> --skill              Show bundled skill`;
 
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
+
+// --run flag: invoked as fallback from bin/dna, always invoke bin
+const runMode = args[0] === '--run';
+if (runMode) args = args.slice(1);
+
 if (!args.length || ['-h', '--help', 'help'].includes(args[0])) {
   console.log(HELP);
   process.exit(0);
@@ -94,9 +99,8 @@ const toolName = args[0];
 const rest = args.slice(1);
 
 if (!(toolName in tools)) {
-  console.error(`❌ Unknown tool: ${toolName}`);
-  console.error(`   Available: ${Object.keys(tools).sort().join(', ')}`);
-  process.exit(1);
+  // Exit 127 = not found (used by bin/dna fallback to show its own error)
+  process.exit(127);
 }
 
 const cfg = tools[toolName];
@@ -108,13 +112,40 @@ if (rest.includes('--skill')) {
 
 const hasSpecFlag = rest.some(f => SPEC_FLAGS.has(f));
 
-if (!rest.length || hasSpecFlag) {
-  if (!cfg.repo) { console.error(`❌ Tool '${toolName}' has no repo configured.`); process.exit(1); }
-  const specFlags = rest.filter(f => SPEC_FLAGS.has(f));
-  // Delegate to spec-cli (could be .ts or .py)
-  const specCliPy = path.join(DNA_DATA, 'scripts', 'spec-cli.py');
+// --run mode: always invoke the bin directly
+if (runMode) {
+  if (!cfg.bin) {
+    console.error(`❌ Tool '${toolName}' has no bin configured.`);
+    process.exit(1);
+  }
+  const parts = cfg.bin.split(/\s+/);
   try {
-    const result = execFileSync('python3', [specCliPy, '--repo', cfg.repo, ...specFlags], { stdio: 'inherit' });
+    execFileSync(parts[0], [...parts.slice(1), ...rest], { stdio: 'inherit' });
+  } catch (e: any) {
+    process.exit(e.status || 1);
+  }
+  process.exit(0);
+}
+
+if (!rest.length || hasSpecFlag) {
+  // No args: show GBTD if repo exists, otherwise invoke bin
+  if (!cfg.repo) {
+    if (cfg.bin) {
+      const parts = cfg.bin.split(/\s+/);
+      try {
+        execFileSync(parts[0], [...parts.slice(1), ...rest], { stdio: 'inherit' });
+      } catch (e: any) {
+        process.exit(e.status || 1);
+      }
+      process.exit(0);
+    }
+    console.error(`❌ Tool '${toolName}' has no repo or bin configured.`);
+    process.exit(1);
+  }
+  const specFlags = rest.filter(f => SPEC_FLAGS.has(f));
+  // Delegate to spec-cli.ts
+  try {
+    execFileSync('node', ['--experimental-strip-types', SPEC_CLI, '--repo', cfg.repo, ...specFlags], { stdio: 'inherit' });
   } catch (e: any) {
     process.exit(e.status || 1);
   }
