@@ -1,6 +1,6 @@
 {
   "name": "agentic-dna",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Governance and knowledge system for AI agent fleets",
   "type": "module",
   "license": "Apache-2.0",
