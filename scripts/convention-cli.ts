@@ -11,7 +11,8 @@
  *   dna convention --search "database"             # Search by keyword
  */
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { DNA_DATA, INJECT_CHAR_LIMIT, loadEntries, resolveAgentWorkspace, loadYaml } from "../lib/common.ts";
 
 const CONVENTION_DIR = join(DNA_DATA, "conventions");
@@ -23,7 +24,10 @@ Usage:
   dna convention --inject <slug>                 Injectable format
   dna convention --agent <id>                    Show agent's local conventions
   dna convention --agent <id> --all              Show global + local
-  dna convention --search <query>                Search by keyword`;
+  dna convention --search <query>                Search by keyword
+  dna convention --add <slug>                    Create new convention (opens in $EDITOR)
+  dna convention --edit <slug>                   Edit existing convention in $EDITOR
+  dna convention --rm <slug>                     Trash a convention`;
 
 function cmdList() {
   const entries = loadEntries(CONVENTION_DIR);
@@ -124,6 +128,39 @@ function cmdAgent(agentId: string, includeGlobal: boolean) {
   }
 }
 
+function slugToTitle(slug: string): string {
+  return slug.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function cmdAdd(slug: string) {
+  const filePath = join(CONVENTION_DIR, `${slug}.md`);
+  if (existsSync(filePath)) { console.error(`❌ Convention already exists: ${slug}`); process.exit(1); }
+  const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\nderives-from: ""\ntags: []\n---\n\n# ${slug}\n\n## Rule\n\n(describe the rule here)\n`;
+  writeFileSync(filePath, template, "utf-8");
+  const editor = process.env.EDITOR || "vi";
+  execSync(`${editor} ${filePath}`, { stdio: "inherit" });
+  console.log(`✅ Created: ${filePath}`);
+}
+
+function cmdEdit(slug: string) {
+  const filePath = join(CONVENTION_DIR, `${slug}.md`);
+  if (!existsSync(filePath)) { console.error(`❌ Convention not found: ${slug}`); process.exit(1); }
+  const editor = process.env.EDITOR || "vi";
+  execSync(`${editor} ${filePath}`, { stdio: "inherit" });
+}
+
+function cmdRm(slug: string) {
+  const filePath = join(CONVENTION_DIR, `${slug}.md`);
+  if (!existsSync(filePath)) { console.error(`❌ Convention not found: ${slug}`); process.exit(1); }
+  try {
+    execSync(`which trash`, { stdio: "ignore" });
+    execSync(`trash ${filePath}`, { stdio: "inherit" });
+  } catch {
+    execSync(`mv ${filePath} ~/.Trash/`, { stdio: "inherit" });
+  }
+  console.log(`🗑️  Trashed: ${slug}`);
+}
+
 // ── Main ──
 const args = process.argv.slice(2);
 if (!args.length || args[0] === "--help" || args[0] === "-h") { console.log(HELP); process.exit(0); }
@@ -132,4 +169,7 @@ if (args[0] === "--list") cmdList();
 else if (args[0] === "--agent" && args[1]) cmdAgent(args[1], args.includes("--all"));
 else if (args[0] === "--inject" && args[1]) cmdInject(args[1]);
 else if (args[0] === "--search" && args[1]) cmdSearch(args[1]);
+else if (args[0] === "--add" && args[1]) cmdAdd(args[1]);
+else if (args[0] === "--edit" && args[1]) cmdEdit(args[1]);
+else if (args[0] === "--rm" && args[1]) cmdRm(args[1]);
 else cmdShow(args[0]);

@@ -4,10 +4,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import yaml from 'js-yaml';
 import { DNA_DATA, parseFrontmatter, resolveAgentWorkspace } from '../lib/common.ts';
 
-const WORKFLOW_DIR = path.join(DNA_DATA, 'modules', 'workflow', 'workflows');
+const WORKFLOW_DIR = path.join(DNA_DATA, 'workflows');
 const INJECT_CHAR_LIMIT = 2000;
 
 interface WorkflowEntry {
@@ -115,6 +116,39 @@ function cmdSearch(query: string) {
   }
 }
 
+function slugToTitle(slug: string): string {
+  return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function cmdAddWorkflow(slug: string) {
+  const filePath = path.join(WORKFLOW_DIR, `${slug}.md`);
+  if (fs.existsSync(filePath)) { console.error(`❌ Workflow already exists: ${slug}`); process.exit(1); }
+  const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\ntags: []\n---\n\n# ${slug}\n\n## Description\n\n(describe the workflow here)\n`;
+  fs.writeFileSync(filePath, template, 'utf-8');
+  const editor = process.env.EDITOR || 'vi';
+  execSync(`${editor} ${filePath}`, { stdio: 'inherit' });
+  console.log(`✅ Created: ${filePath}`);
+}
+
+function cmdEditWorkflow(slug: string) {
+  const filePath = path.join(WORKFLOW_DIR, `${slug}.md`);
+  if (!fs.existsSync(filePath)) { console.error(`❌ Workflow not found: ${slug}`); process.exit(1); }
+  const editor = process.env.EDITOR || 'vi';
+  execSync(`${editor} ${filePath}`, { stdio: 'inherit' });
+}
+
+function cmdRmWorkflow(slug: string) {
+  const filePath = path.join(WORKFLOW_DIR, `${slug}.md`);
+  if (!fs.existsSync(filePath)) { console.error(`❌ Workflow not found: ${slug}`); process.exit(1); }
+  try {
+    execSync('which trash', { stdio: 'ignore' });
+    execSync(`trash ${filePath}`, { stdio: 'inherit' });
+  } catch {
+    execSync(`mv ${filePath} ~/.Trash/`, { stdio: 'inherit' });
+  }
+  console.log(`🗑️  Trashed: ${slug}`);
+}
+
 const args = process.argv.slice(2);
 if (!args.length || args[0] === '--help' || args[0] === '-h') {
   console.log(`DNA Workflow CLI
@@ -124,7 +158,10 @@ Usage:
   dna workflow <slug>                Show full workflow definition
   dna workflow --inject <slug>       Injectable format
   dna workflow --search <query>      Search workflows
-  dna workflow --agent <id>          Show agent's assigned workflow`);
+  dna workflow --agent <id>          Show agent's assigned workflow
+  dna workflow --add <slug>          Create new workflow (opens in $EDITOR)
+  dna workflow --edit <slug>         Edit existing workflow in $EDITOR
+  dna workflow --rm <slug>           Trash a workflow`);
 } else if (args[0] === '--list') {
   cmdList();
 } else if (args[0] === '--agent' && args[1]) {
@@ -133,6 +170,12 @@ Usage:
   cmdInject(args[1]);
 } else if (args[0] === '--search' && args[1]) {
   cmdSearch(args.slice(1).join(' '));
+} else if (args[0] === '--add' && args[1]) {
+  cmdAddWorkflow(args[1]);
+} else if (args[0] === '--edit' && args[1]) {
+  cmdEditWorkflow(args[1]);
+} else if (args[0] === '--rm' && args[1]) {
+  cmdRmWorkflow(args[1]);
 } else {
   cmdShow(args[0]);
 }

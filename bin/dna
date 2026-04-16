@@ -53,7 +53,7 @@ case "$subcmd" in
     ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
-    mkdir -p "$DATA_DIR/philosophy" "$DATA_DIR/conventions"
+    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/workflows"
     echo "🧬 DNA initialized at $DATA_DIR"
     echo "Add philosophy entries to $DATA_DIR/philosophy/"
     echo "Add conventions to $DATA_DIR/conventions/"
