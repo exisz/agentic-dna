@@ -1,8 +1,10 @@
 # 🧬 Agentic DNA
 
+[![CI](https://github.com/exisz/agentic-dna/actions/workflows/ci.yml/badge.svg)](https://github.com/exisz/agentic-dna/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm: agentic-dna](https://img.shields.io/npm/v/agentic-dna.svg)](https://www.npmjs.com/package/agentic-dna)
 [![npm: openclaw-dna](https://img.shields.io/npm/v/openclaw-dna.svg)](https://www.npmjs.com/package/openclaw-dna)
+[![npm downloads](https://img.shields.io/npm/dm/agentic-dna.svg)](https://www.npmjs.com/package/agentic-dna)
 
 **Governance and knowledge system for AI agent fleets.**
 

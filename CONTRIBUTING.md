@@ -6,7 +6,7 @@ Thank you for your interest in contributing! Here's how to get started.
 
 ```bash
 git clone https://github.com/exisz/agentic-dna.git
-cd dna/openclaw
+cd agentic-dna
 pnpm install
 pnpm build
 ```
