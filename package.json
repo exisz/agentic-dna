@@ -17,7 +17,8 @@
     "lib"
   ],
   "scripts": {
-    "postinstall": "echo '🧬 DNA installed. Run: dna help'"
+    "postinstall": "echo '🧬 DNA installed. Run: dna help'",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "engines": {
     "node": ">=18"

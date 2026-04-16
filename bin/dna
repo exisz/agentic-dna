@@ -2,7 +2,14 @@
 # DNA CLI — Agentic DNA unified command
 # Routes subcommands to appropriate handlers
 
-DNA_CODE="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve symlinks to find real repo location
+_self="$0"
+while [ -L "$_self" ]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  case "$_self" in /*) ;; *) _self="$_dir/$_self" ;; esac
+done
+DNA_CODE="$(cd "$(dirname "$_self")/.." && pwd)"
 
 # Data directory: ~/.dna > ~/.openclaw/.dna > ~/.agentic-dna
 if [ -d "$HOME/.dna" ]; then
@@ -72,8 +79,12 @@ case "$subcmd" in
     echo "  dna hydrate --all"
     ;;
   *)
-    echo "Unknown subcommand: $subcmd" >&2
-    echo "Run 'dna help' for usage." >&2
-    exit 1
+    # Fallback: try tool routing (e.g. dna cron → dna tool cron)
+    node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" "$subcmd" "$@" 2>/dev/null
+    if [ $? -ne 0 ]; then
+      echo "Unknown subcommand: $subcmd" >&2
+      echo "Run 'dna help' for usage." >&2
+      exit 1
+    fi
     ;;
 esac

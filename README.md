@@ -68,7 +68,7 @@ dna workflow --list            # List workflow levels
 dna skill ls                   # List manual skills
 ```
 
-> **Note:** Most CLI subcommands are being rewritten in TypeScript. Currently only `hydrate` and `init` are functional. Others will show a "coming soon" message.
+Any unrecognized subcommand automatically falls through to `dna tool <name>`, so registered toolbox entries work as top-level commands (e.g. `dna agentbase` → `dna tool agentbase`).
 
 ## Development
 
