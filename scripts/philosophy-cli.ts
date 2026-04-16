@@ -1,0 +1,109 @@
+#!/usr/bin/env node
+/**
+ * DNA Philosophy CLI — Query the philosophy database.
+ *
+ * Usage:
+ *   dna philosophy --list                        # List all entries
+ *   dna philosophy artifact-is-the-test          # Full text of entry
+ *   dna philosophy --inject artifact-is-the-test # Injectable format
+ *   dna philosophy --search "artifact"           # Search by keyword
+ *   dna philosophy --agent my-agent              # Show agent's philosophy
+ */
+import { join } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { DNA_DATA, INJECT_CHAR_LIMIT, loadEntries, resolveAgentWorkspace, loadYaml } from "../lib/common.ts";
+
+const PHILOSOPHY_DIR = join(DNA_DATA, "philosophy");
+const HELP = `🧬 DNA Philosophy CLI
+
+Usage:
+  dna philosophy --list                        List all entries
+  dna philosophy <slug>                        Full text of entry
+  dna philosophy --inject <slug>               Injectable format
+  dna philosophy --search <query>              Search by keyword
+  dna philosophy --agent <id>                  Show agent's philosophy`;
+
+function cmdList() {
+  const entries = loadEntries(PHILOSOPHY_DIR);
+  if (!entries.length) { console.log("No philosophy entries found."); return; }
+  console.log(`🧬 Philosophy Database — ${entries.length} entries\n`);
+  const col = Math.max(...entries.map(e => (e.id as string).length)) + 2;
+  console.log(`${"ID".padEnd(col)} ${"Title".padEnd(40)} Tags`);
+  console.log("-".repeat(col + 50));
+  for (const e of entries) {
+    const tags = Array.isArray(e.tags) ? e.tags.join(", ") : (e.tags || "");
+    console.log(`${(e.id as string).padEnd(col)} ${(e.title || "?").toString().padEnd(40)} ${tags}`);
+  }
+}
+
+function cmdShow(slug: string) {
+  const entries = loadEntries(PHILOSOPHY_DIR);
+  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  if (!e) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
+  console.log(e._body);
+}
+
+function cmdInject(slug: string) {
+  const entries = loadEntries(PHILOSOPHY_DIR);
+  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  if (!e) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
+
+  const summary = e.summary || (() => {
+    console.error(`⚠️ No summary field for ${e.id} — using body fallback`);
+    return (e._body as string).slice(0, 500).trimEnd();
+  })();
+
+  let output = `<!-- DNA:${e.id} -->\n## 🧬 ${e.id}: ${e.title}\n\n${summary}\n<!-- /DNA:${e.id} -->`;
+  if (output.length > INJECT_CHAR_LIMIT) {
+    let truncated = output.slice(0, INJECT_CHAR_LIMIT);
+    const lastNl = truncated.lastIndexOf("\n");
+    if (lastNl > INJECT_CHAR_LIMIT / 2) truncated = truncated.slice(0, lastNl);
+    output = truncated + `\n\n⚠️ TRUNCATED — run \`dna philosophy ${e.id}\` for full text.\n<!-- /DNA:${e.id} -->`;
+  }
+  console.log(output);
+}
+
+function cmdSearch(query: string) {
+  const entries = loadEntries(PHILOSOPHY_DIR);
+  const q = query.toLowerCase();
+  const results = entries.filter(e => {
+    const searchable = `${e.title || ""} ${e._body || ""} ${e.tags || ""}`;
+    return searchable.toLowerCase().includes(q);
+  });
+  if (!results.length) { console.log(`No entries matching '${query}'`); return; }
+  console.log(`🔍 ${results.length} entries matching '${query}':\n`);
+  for (const e of results) console.log(`  ${e.id}: ${e.title}`);
+}
+
+function cmdAgent(agentId: string) {
+  const workspace = resolveAgentWorkspace(agentId);
+  if (!workspace) { console.error(`❌ Agent not found: ${agentId}`); process.exit(1); }
+  const dnaPath = join(workspace, "dna.yaml");
+  if (!existsSync(dnaPath)) { console.error(`❌ No dna.yaml found in ${workspace}`); process.exit(1); }
+
+  const data = loadYaml(dnaPath);
+  // Find philosophy list - could be at root or nested
+  const root = data && typeof data === "object" ? data : {};
+  const firstKey = Object.keys(root)[0];
+  const inner = (firstKey && typeof root[firstKey] === "object" && !Array.isArray(root[firstKey])) ? root[firstKey] : root;
+  const phiIds: string[] = inner?.philosophy || [];
+  if (!phiIds.length) { console.log(`No philosophy entries in ${dnaPath}`); return; }
+
+  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entryMap = new Map(entries.map(e => [(e.id as string).toLowerCase(), e]));
+  console.log(`🧬 ${agentId} Philosophy — ${phiIds.length} entries\n`);
+  for (const pid of phiIds) {
+    const e = entryMap.get(pid.toLowerCase());
+    console.log(e ? `  ${pid}: ${e.title}` : `  ${pid}: ❌ NOT FOUND`);
+  }
+}
+
+// ── Main ──
+const args = process.argv.slice(2);
+if (!args.length || args[0] === "--help" || args[0] === "-h") { console.log(HELP); process.exit(0); }
+
+if (args[0] === "--list") cmdList();
+else if (args[0] === "--agent" && args[1]) cmdAgent(args[1]);
+else if (args[0] === "--inject" && args[1]) cmdInject(args[1]);
+else if (args[0] === "--search" && args[1]) cmdSearch(args[1]);
+else cmdShow(args[0]);

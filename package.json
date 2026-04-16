@@ -1,0 +1,39 @@
+{
+  "name": "agentic-dna",
+  "version": "0.1.0",
+  "description": "Governance and knowledge system for AI agent fleets",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exisz/agentic-dna"
+  },
+  "bin": {
+    "dna": "./bin/dna"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "lib"
+  ],
+  "scripts": {
+    "postinstall": "echo '🧬 DNA installed. Run: dna help'"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "dna",
+    "governance",
+    "agent-framework",
+    "ai-agents",
+    "fleet-management",
+    "cli"
+  ],
+  "dependencies": {
+    "js-yaml": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
+  }
+}
