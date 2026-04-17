@@ -57,7 +57,7 @@ function cmdInject(slug: string) {
     return (e._body as string).slice(0, 500).trimEnd();
   })();
 
-  let output = `<!-- DNA:${e.id} -->\n## 🧬 ${e.id}: ${e.title}\n\n${summary}\n<!-- /DNA:${e.id} -->`;
+  let output = `<!-- DNA:${e.id} -->\n**🧬 ${e.id}** *(summary)*: ${summary}\n\n> 📖 *Full text*: \`dna philosophy ${e.id}\`\n<!-- /DNA:${e.id} -->`;
   if (output.length > INJECT_CHAR_LIMIT) {
     let truncated = output.slice(0, INJECT_CHAR_LIMIT);
     const lastNl = truncated.lastIndexOf("\n");

@@ -66,7 +66,7 @@ dna tool <name>                # View tool GBTD
 dna hydrate --all              # Expand all {{dna}} directives
 dna cron up <id>               # Increase cron frequency
 dna cron down <id>             # Decrease cron frequency
-dna architecture --list        # List architecture paradigms
+dna protocol --list            # List protocol paradigms
 dna skill ls                   # List manual skills
 ```
 

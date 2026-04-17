@@ -187,7 +187,7 @@ function cmdInject(slug: string, scope: Scope) {
   const derives = e["derives-from"] ? ` (← ${e["derives-from"]})` : "";
 
   if (e.summary) {
-    console.log(`<!-- CONVENTION:${e.id}${scopeSuffix} -->\n**📏 ${e.id}:** ${e.summary}${derives}\n<!-- /CONVENTION:${e.id} -->`);
+    console.log(`<!-- CONVENTION:${e.id}${scopeSuffix} -->\n**📏 ${e.id}** *(summary)*: ${e.summary}${derives}\n\n> 📖 *Full text*: \`dna convention ${e.id}\`\n<!-- /CONVENTION:${e.id} -->`);
     return;
   }
   let output = `<!-- CONVENTION:${e.id}${scopeSuffix} -->\n## 📏 ${e.id}: ${e.title}\n\n${e._body}\n<!-- /CONVENTION:${e.id} -->`;

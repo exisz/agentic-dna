@@ -1,6 +1,6 @@
-# Architecture System — Git, CI, Deploy & Merge Paradigms
+# Protocol System — Git, CI, Deploy & Merge Paradigms
 
-Every project declares an `architecture:` field in its agent's `dna.yaml`. The architecture determines git branching strategy, CI pipeline shape, QA gates, and agent merge authority.
+Every project declares a `protocol:` field in its agent's `dna.yaml`. The protocol determines git branching strategy, CI pipeline shape, QA gates, and agent merge authority.
 
 ## Two-Second Decision Tree
 
@@ -13,7 +13,7 @@ Human must approve every merge?          → dev-pr-human-merge
 Enterprise-grade multi-gate?             → advanced (placeholder)
 ```
 
-## Architecture Levels (ordered by increasing rigour)
+## Protocol Levels (ordered by increasing rigour)
 
 | ID | Branches | PR | QA On | Agent Can Merge | Human Review |
 |----|----------|----|-------|-----------------|--------------|
@@ -29,15 +29,15 @@ Enterprise-grade multi-gate?             → advanced (placeholder)
 In the agent's `dna.yaml`:
 
 ```yaml
-architecture: basic-dev
+protocol: basic-dev
 ```
 
 ## CLI
 
 ```bash
-dna architecture --list                   # List all architecture paradigms
-dna architecture basic                    # Show full architecture definition
-dna architecture --inject basic           # Injectable format for AGENTS.md
-dna architecture --agent <agent>          # Show which architecture an agent uses
-dna architecture --search "human"         # Search architectures
+dna protocol --list                   # List all protocol paradigms
+dna protocol basic                    # Show full protocol definition
+dna protocol --inject basic           # Injectable format for AGENTS.md
+dna protocol --agent <agent>          # Show which protocol an agent uses
+dna protocol --search "human"         # Search protocols
 ```

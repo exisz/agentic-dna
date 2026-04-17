@@ -187,7 +187,7 @@ function cmdInject(slug: string, scope: Scope) {
   const derives = e["derives-from"] ? ` (← ${e["derives-from"]})` : "";
 
   if (e.summary) {
-    console.log(`<!-- FLOW:${e.id}${scopeSuffix} -->\n**🌊 ${e.id}:** ${e.summary}${derives}\n<!-- /FLOW:${e.id} -->`);
+    console.log(`<!-- FLOW:${e.id}${scopeSuffix} -->\n**🌊 ${e.id}** *(summary)*: ${e.summary}${derives}\n\n> 📖 *Full text*: \`dna flow ${e.id}\`\n<!-- /FLOW:${e.id} -->`);
     return;
   }
   let output = `<!-- FLOW:${e.id}${scopeSuffix} -->\n## 🌊 ${e.id}: ${e.title}\n\n${e._body}\n<!-- /FLOW:${e.id} -->`;

@@ -36,7 +36,7 @@ DNA is the governing knowledge system. Before writing anything, know where it be
 | Deprecated patterns | \`dna.yaml\` → \`deprecated:\` section | \`dna spec <agent> --deprecated\` |
 | Universal principles | Philosophy DB | \`dna philosophy <slug>\` |
 | Actionable rules (global or local) | Convention DB | \`dna convention <slug>\` or in \`dna.yaml\` → \`conventions:\` |
-| Architecture paradigms (git/CI/deploy) | Architecture DB | \`dna architecture <slug>\` |
+| Protocol paradigms (git/CI/deploy) | Protocol DB | \`dna protocol <slug>\` |
 | Flow procedures (executable steps) | Flow DB | \`dna flow <slug>\` |
 | Shared CLIs/tools | DNA Toolbox | \`dna tool ls\` / \`dna tool <name>\` |
 | Agent-specific tool notes | \`TOOLS.md\` | (workspace file) |

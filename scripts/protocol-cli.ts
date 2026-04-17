@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DNA Architecture CLI — Query architecture paradigms (git/CI/deploy levels).
+ * DNA Protocol CLI — Query protocol paradigms (git/CI/deploy levels).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,21 +8,21 @@ import { execSync } from 'node:child_process';
 import yaml from 'js-yaml';
 import { DNA_DATA, parseFrontmatter, resolveAgentWorkspace } from '../lib/common.ts';
 
-const ARCHITECTURE_DIR = path.join(DNA_DATA, 'architectures');
+const PROTOCOL_DIR = path.join(DNA_DATA, 'protocols');
 const INJECT_CHAR_LIMIT = 2000;
 
-interface ArchitectureEntry {
+interface ProtocolEntry {
   meta: Record<string, any>;
   body: string;
   filePath: string;
 }
 
-function loadArchitectures(): ArchitectureEntry[] {
-  if (!fs.existsSync(ARCHITECTURE_DIR)) return [];
-  const entries: ArchitectureEntry[] = [];
-  for (const file of fs.readdirSync(ARCHITECTURE_DIR).sort()) {
+function loadProtocols(): ProtocolEntry[] {
+  if (!fs.existsSync(PROTOCOL_DIR)) return [];
+  const entries: ProtocolEntry[] = [];
+  for (const file of fs.readdirSync(PROTOCOL_DIR).sort()) {
     if (!file.endsWith('.md') || file === 'index.md') continue;
-    const filePath = path.join(ARCHITECTURE_DIR, file);
+    const filePath = path.join(PROTOCOL_DIR, file);
     const content = fs.readFileSync(filePath, 'utf-8');
     const { meta, body } = parseFrontmatter(content);
     if (!meta.id) continue;
@@ -32,9 +32,9 @@ function loadArchitectures(): ArchitectureEntry[] {
 }
 
 function cmdList() {
-  const entries = loadArchitectures();
-  if (!entries.length) { console.log('No architectures found.'); return; }
-  console.log(`🏗️  Architecture Paradigms — ${entries.length} entries\n`);
+  const entries = loadProtocols();
+  if (!entries.length) { console.log('No protocols found.'); return; }
+  console.log(`📡 Protocol Paradigms — ${entries.length} entries\n`);
   const col = Math.max(...entries.map(e => (e.meta.id || '').length)) + 2;
   console.log(`${'ID'.padEnd(col)} Title`);
   console.log('-'.repeat(col + 50));
@@ -44,35 +44,36 @@ function cmdList() {
 }
 
 function cmdShow(entryId: string) {
-  const entries = loadArchitectures();
+  const entries = loadProtocols();
   const e = entries.find(e => (e.meta.id || '').toLowerCase() === entryId.toLowerCase());
-  if (!e) { console.error(`❌ Architecture not found: ${entryId}`); process.exit(1); }
+  if (!e) { console.error(`❌ Protocol not found: ${entryId}`); process.exit(1); }
   console.log(e.body);
 }
 
 function cmdInject(entryId: string) {
-  const entries = loadArchitectures();
+  const entries = loadProtocols();
   const e = entries.find(e => (e.meta.id || '').toLowerCase() === entryId.toLowerCase());
-  if (!e) { console.error(`❌ Architecture not found: ${entryId}`); process.exit(1); }
+  if (!e) { console.error(`❌ Protocol not found: ${entryId}`); process.exit(1); }
 
   const eid = e.meta.id || entryId;
   const title = e.meta.title || entryId;
   const summary = e.meta.summary || '';
 
   if (summary) {
-    console.log(`<!-- ARCHITECTURE:${eid} -->`);
-    console.log(`**🏗️  ${eid}:** ${summary}`);
-    console.log(`<!-- /ARCHITECTURE:${eid} -->`);
+    console.log(`<!-- PROTOCOL:${eid} -->`);
+    console.log(`**📡 ${eid}** *(summary)*: ${summary}`);
+    console.log(`\n> 📖 *Full text*: \`dna protocol ${eid}\``);
+    console.log(`<!-- /PROTOCOL:${eid} -->`);
     return;
   }
 
-  let output = `<!-- ARCHITECTURE:${eid} -->\n## 🏗️  ${eid}: ${title}\n\n${e.body}\n<!-- /ARCHITECTURE:${eid} -->`;
+  let output = `<!-- PROTOCOL:${eid} -->\n## 📡 ${eid}: ${title}\n\n${e.body}\n<!-- /PROTOCOL:${eid} -->`;
   if (output.length > INJECT_CHAR_LIMIT) {
     let truncated = output.slice(0, INJECT_CHAR_LIMIT);
     const lastNl = truncated.lastIndexOf('\n');
     if (lastNl > INJECT_CHAR_LIMIT / 2) truncated = truncated.slice(0, lastNl);
-    truncated += `\n\n⚠️ TRUNCATED — architecture '${eid}' exceeds ${INJECT_CHAR_LIMIT} char inject limit. Run \`dna architecture ${eid}\` for full text.`;
-    truncated += `\n<!-- /ARCHITECTURE:${eid} -->`;
+    truncated += `\n\n⚠️ TRUNCATED — protocol '${eid}' exceeds ${INJECT_CHAR_LIMIT} char inject limit. Run \`dna protocol ${eid}\` for full text.`;
+    truncated += `\n<!-- /PROTOCOL:${eid} -->`;
     console.log(truncated);
   } else {
     console.log(output);
@@ -84,33 +85,33 @@ function cmdAgent(agentId: string) {
   if (!workspace) { console.error(`❌ Agent '${agentId}' not found in openclaw.json`); process.exit(1); }
 
   const dnaPath = path.join(workspace, 'dna.yaml');
-  if (!fs.existsSync(dnaPath)) { console.log(`⚠️  Agent '${agentId}' has no architecture: field in dna.yaml`); return; }
+  if (!fs.existsSync(dnaPath)) { console.log(`⚠️  Agent '${agentId}' has no protocol: field in dna.yaml`); return; }
 
   const content = fs.readFileSync(dnaPath, 'utf-8');
   const data = yaml.load(content) as Record<string, any> | null;
-  const architecture = data?.architecture || data?.workflow;
-  if (!architecture) { console.log(`⚠️  Agent '${agentId}' has no architecture: field in dna.yaml`); return; }
+  const protocol = data?.protocol || data?.architecture || data?.workflow;
+  if (!protocol) { console.log(`⚠️  Agent '${agentId}' has no protocol: field in dna.yaml`); return; }
 
-  console.log(`🏗️  ${agentId} → architecture: ${architecture}`);
-  const entries = loadArchitectures();
-  const e = entries.find(e => (e.meta.id || '').toLowerCase() === String(architecture).toLowerCase());
+  console.log(`📡 ${agentId} → protocol: ${protocol}`);
+  const entries = loadProtocols();
+  const e = entries.find(e => (e.meta.id || '').toLowerCase() === String(protocol).toLowerCase());
   if (e) {
     const summary = e.meta.summary || '';
     if (summary) console.log(`\n   ${summary}`);
   } else {
-    console.log(`\n   ⚠️  Architecture '${architecture}' not found in architecture definitions`);
+    console.log(`\n   ⚠️  Protocol '${protocol}' not found in protocol definitions`);
   }
 }
 
 function cmdSearch(query: string) {
-  const entries = loadArchitectures();
+  const entries = loadProtocols();
   const q = query.toLowerCase();
   const results = entries.filter(e => {
     const s = `${e.meta.title || ''} ${e.body} ${e.meta.summary || ''} ${e.meta.tags || ''}`.toLowerCase();
     return s.includes(q);
   });
-  if (!results.length) { console.log(`No architectures matching '${query}'`); return; }
-  console.log(`🔍 ${results.length} architectures matching '${query}':\n`);
+  if (!results.length) { console.log(`No protocols matching '${query}'`); return; }
+  console.log(`🔍 ${results.length} protocols matching '${query}':\n`);
   for (const e of results) {
     console.log(`  ${e.meta.id || '?'}: ${e.meta.title || '?'}`);
   }
@@ -120,26 +121,26 @@ function slugToTitle(slug: string): string {
   return slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function cmdAddArchitecture(slug: string) {
-  const filePath = path.join(ARCHITECTURE_DIR, `${slug}.md`);
-  if (fs.existsSync(filePath)) { console.error(`❌ Architecture already exists: ${slug}`); process.exit(1); }
-  const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\ntags: []\n---\n\n# ${slug}\n\n## Description\n\n(describe the architecture here)\n`;
+function cmdAddProtocol(slug: string) {
+  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  if (fs.existsSync(filePath)) { console.error(`❌ Protocol already exists: ${slug}`); process.exit(1); }
+  const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\ntags: []\n---\n\n# ${slug}\n\n## Description\n\n(describe the protocol here)\n`;
   fs.writeFileSync(filePath, template, 'utf-8');
   const editor = process.env.EDITOR || 'vi';
   execSync(`${editor} ${filePath}`, { stdio: 'inherit' });
   console.log(`✅ Created: ${filePath}`);
 }
 
-function cmdEditArchitecture(slug: string) {
-  const filePath = path.join(ARCHITECTURE_DIR, `${slug}.md`);
-  if (!fs.existsSync(filePath)) { console.error(`❌ Architecture not found: ${slug}`); process.exit(1); }
+function cmdEditProtocol(slug: string) {
+  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  if (!fs.existsSync(filePath)) { console.error(`❌ Protocol not found: ${slug}`); process.exit(1); }
   const editor = process.env.EDITOR || 'vi';
   execSync(`${editor} ${filePath}`, { stdio: 'inherit' });
 }
 
-function cmdRmArchitecture(slug: string) {
-  const filePath = path.join(ARCHITECTURE_DIR, `${slug}.md`);
-  if (!fs.existsSync(filePath)) { console.error(`❌ Architecture not found: ${slug}`); process.exit(1); }
+function cmdRmProtocol(slug: string) {
+  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  if (!fs.existsSync(filePath)) { console.error(`❌ Protocol not found: ${slug}`); process.exit(1); }
   try {
     execSync('which trash', { stdio: 'ignore' });
     execSync(`trash ${filePath}`, { stdio: 'inherit' });
@@ -151,17 +152,17 @@ function cmdRmArchitecture(slug: string) {
 
 const args = process.argv.slice(2);
 if (!args.length || args[0] === '--help' || args[0] === '-h') {
-  console.log(`DNA Architecture CLI
+  console.log(`DNA Protocol CLI
 
 Usage:
-  dna architecture --list                List all architecture paradigms
-  dna architecture <slug>                Show full architecture definition
-  dna architecture --inject <slug>       Injectable format
-  dna architecture --search <query>      Search architectures
-  dna architecture --agent <id>          Show agent's assigned architecture
-  dna architecture --add <slug>          Create new architecture (opens in $EDITOR)
-  dna architecture --edit <slug>         Edit existing architecture in $EDITOR
-  dna architecture --rm <slug>           Trash an architecture`);
+  dna protocol --list                List all protocol paradigms
+  dna protocol <slug>                Show full protocol definition
+  dna protocol --inject <slug>       Injectable format
+  dna protocol --search <query>      Search protocols
+  dna protocol --agent <id>          Show agent's assigned protocol
+  dna protocol --add <slug>          Create new protocol (opens in $EDITOR)
+  dna protocol --edit <slug>         Edit existing protocol in $EDITOR
+  dna protocol --rm <slug>           Trash a protocol`);
 } else if (args[0] === '--list') {
   cmdList();
 } else if (args[0] === '--agent' && args[1]) {
@@ -171,11 +172,11 @@ Usage:
 } else if (args[0] === '--search' && args[1]) {
   cmdSearch(args.slice(1).join(' '));
 } else if (args[0] === '--add' && args[1]) {
-  cmdAddArchitecture(args[1]);
+  cmdAddProtocol(args[1]);
 } else if (args[0] === '--edit' && args[1]) {
-  cmdEditArchitecture(args[1]);
+  cmdEditProtocol(args[1]);
 } else if (args[0] === '--rm' && args[1]) {
-  cmdRmArchitecture(args[1]);
+  cmdRmProtocol(args[1]);
 } else {
   cmdShow(args[0]);
 }

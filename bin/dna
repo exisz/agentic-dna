@@ -39,12 +39,16 @@ case "$subcmd" in
   convention)
     exec node --experimental-strip-types "$DNA_CODE/scripts/convention-cli.ts" "$@"
     ;;
+  protocol)
+    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    ;;
   architecture)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/architecture-cli.ts" "$@"
+    echo "⚠️  'dna architecture' renamed to 'dna protocol'. Update your scripts." >&2
+    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
     ;;
   workflow)
-    echo "⚠️  'dna workflow' renamed to 'dna architecture'. Update your scripts." >&2
-    exec node --experimental-strip-types "$DNA_CODE/scripts/architecture-cli.ts" "$@"
+    echo "⚠️  'dna workflow' renamed to 'dna protocol'. Update your scripts." >&2
+    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
     ;;
   flow)
     exec node --experimental-strip-types "$DNA_CODE/scripts/flow-cli.ts" "$@"
@@ -60,10 +64,11 @@ case "$subcmd" in
     ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
-    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/architectures" "$DATA_DIR/flows"
+    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/protocols" "$DATA_DIR/flows"
     echo "🧬 DNA initialized at $DATA_DIR"
     echo "Add philosophy entries to $DATA_DIR/philosophy/"
     echo "Add conventions to $DATA_DIR/conventions/"
+    echo "Add protocols to $DATA_DIR/protocols/"
     ;;
   help|--help|-h)
     echo "🧬 Agentic DNA — Governing Knowledge System"
@@ -75,8 +80,8 @@ case "$subcmd" in
     echo "  spec          GBTD spec operations"
     echo "  philosophy    Philosophy database"
     echo "  convention    Convention rules — global & local"
-    echo "  architecture  Architecture paradigms — git/CI/deploy levels"
-  echo "  flow          Flow procedures — global & local"
+    echo "  protocol       Protocol paradigms — git/CI/deploy levels"
+  echo "  flow           Flow procedures — global & local"
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
     echo "  cron          Cron operations: frequency up/down"
