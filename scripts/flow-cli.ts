@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * DNA Convention CLI — Query global and local conventions uniformly.
+ * DNA Flow CLI — Query global and local flows uniformly.
  *
  * Scope resolution:
  *   - `--agent <id>` targets that agent's workspace (explicit).
- *   - Otherwise, if CWD is inside a workspace, local conventions are included.
- *   - Otherwise, only global conventions.
+ *   - Otherwise, if CWD is inside a workspace, local flows are included.
+ *   - Otherwise, only global flows.
  *
- * Local conventions live at `<workspace>/.dna/conventions/*.md` — same
- * markdown+frontmatter format as global. Legacy `dna.yaml → conventions:`
+ * Local flows live at `<workspace>/.dna/flows/*.md` — same
+ * markdown+frontmatter format as global. Legacy `dna.yaml → flows:`
  * yaml entries are still read (with a deprecation notice).
  *
  * Usage:
- *   dna convention --list [--agent <id>] [--scope global|local|all]
- *   dna convention <slug> [--agent <id>]                 # full text
- *   dna convention --inject <slug> [--agent <id>]        # injectable
- *   dna convention --search <query> [--agent <id>]
- *   dna convention --add <slug> [--agent <id>]           # local if in workspace
- *   dna convention --edit <slug> [--agent <id>]
- *   dna convention --rm <slug> [--agent <id>]
+ *   dna flow --list [--agent <id>] [--scope global|local|all]
+ *   dna flow <slug> [--agent <id>]                 # full text
+ *   dna flow --inject <slug> [--agent <id>]        # injectable
+ *   dna flow --search <query> [--agent <id>]
+ *   dna flow --add <slug> [--agent <id>]           # local if in workspace
+ *   dna flow --edit <slug> [--agent <id>]
+ *   dna flow --rm <slug> [--agent <id>]
  */
 import { join } from "node:path";
 import { existsSync, writeFileSync, mkdirSync } from "node:fs";
@@ -32,27 +32,27 @@ import {
   loadYaml,
 } from "../lib/common.ts";
 
-const GLOBAL_DIR = join(DNA_DATA, "conventions");
+const GLOBAL_DIR = join(DNA_DATA, "flows");
 
-const HELP = `📏 DNA Convention CLI
+const HELP = `🌊 DNA Flow CLI
 
 Scope: every command respects --agent <id>, or auto-detects the workspace
-from CWD. Without either, only global conventions are in scope.
+from CWD. Without either, only global flows are in scope.
 
 Usage:
-  dna convention --list                          List conventions in scope
-  dna convention --list --scope global           Global only
-  dna convention --list --scope local            Local only
-  dna convention --list --scope all              Both (default when in workspace)
-  dna convention <slug>                          Full markdown body
-  dna convention --inject <slug>                 Injectable format
-  dna convention --search <query>                Search by keyword
-  dna convention --agent <id>                    Force workspace target
-  dna convention --add <slug>                    Create (local if in workspace)
-  dna convention --edit <slug>                   Edit in \$EDITOR
-  dna convention --rm <slug>                     Trash
+  dna flow --list                          List flows in scope
+  dna flow --list --scope global           Global only
+  dna flow --list --scope local            Local only
+  dna flow --list --scope all              Both (default when in workspace)
+  dna flow <slug>                          Full markdown body
+  dna flow --inject <slug>                 Injectable format
+  dna flow --search <query>                Search by keyword
+  dna flow --agent <id>                    Force workspace target
+  dna flow --add <slug>                    Create (local if in workspace)
+  dna flow --edit <slug>                   Edit in \$EDITOR
+  dna flow --rm <slug>                     Trash
 
-Local conventions: <workspace>/.dna/conventions/*.md  (same format as global).`;
+Local flows: <workspace>/.dna/flows/*.md  (same format as global).`;
 
 // ─── Scope resolution ────────────────────────────────────────
 
@@ -92,7 +92,7 @@ function parseScope(args: string[]): Scope {
 // ─── Loaders ─────────────────────────────────────────────────
 
 function loadLocalDir(workspace: string): Array<Record<string, any>> {
-  const dir = join(workspace, ".dna/conventions");
+  const dir = join(workspace, ".dna/flows");
   const entries = loadEntries(dir);
   return entries.map((e) => ({ ...e, _scope: "local", _workspace: workspace }));
 }
@@ -105,16 +105,16 @@ function loadLocalLegacyYaml(workspace: string): Array<Record<string, any>> {
   const root = (() => {
     const firstKey = Object.keys(data)[0];
     if (firstKey && typeof data[firstKey] === "object" && !Array.isArray(data[firstKey]) &&
-        !["goal", "boundary", "tools", "philosophy", "deprecated", "spec", "conventions"].includes(firstKey)) {
+        !["goal", "boundary", "tools", "philosophy", "deprecated", "spec", "flows"].includes(firstKey)) {
       return data[firstKey];
     }
     return data;
   })();
-  const conventions: Array<Record<string, any>> = root?.conventions || [];
-  if (!conventions.length) return [];
+  const flows: Array<Record<string, any>> = root?.flows || [];
+  if (!flows.length) return [];
   // Warn once
-  console.error(`⚠️  ${workspace}/dna.yaml has legacy yaml conventions — migrate to <workspace>/.dna/conventions/*.md`);
-  return conventions.map((c: any) => ({
+  console.error(`⚠️  ${workspace}/dna.yaml has legacy yaml flows — migrate to <workspace>/.dna/flows/*.md`);
+  return flows.map((c: any) => ({
     id: c.id,
     title: c.title || c.id,
     "derives-from": c["derives-from"] || "",
@@ -156,12 +156,12 @@ function loadEntriesForScope(scope: Scope): Array<Record<string, any>> {
 
 function cmdList(scope: Scope) {
   const entries = loadEntriesForScope(scope);
-  if (!entries.length) { console.log("No conventions in scope."); return; }
+  if (!entries.length) { console.log("No flows in scope."); return; }
   const scopeLabel =
     scope.global && scope.local ? "Global + Local" :
     scope.local ? `Local${scope.workspace ? ` (${scope.workspace})` : ""}` :
     "Global";
-  console.log(`📏 Conventions — ${scopeLabel} — ${entries.length} entries\n`);
+  console.log(`🌊 Flows — ${scopeLabel} — ${entries.length} entries\n`);
   const col = Math.max(...entries.map(e => (e.id as string).length)) + 2;
   console.log(`${"ID".padEnd(col)} ${"Scope".padEnd(14)} ${"Title".padEnd(45)} Derives From`);
   console.log("-".repeat(col + 75));
@@ -174,28 +174,28 @@ function cmdList(scope: Scope) {
 function cmdShow(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
-  if (!e) { console.error(`❌ Convention not found in scope: ${slug}`); process.exit(1); }
+  if (!e) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   console.log(e._body);
 }
 
 function cmdInject(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
-  if (!e) { console.error(`❌ Convention not found in scope: ${slug}`); process.exit(1); }
+  if (!e) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
 
   const scopeSuffix = e._scope && e._scope !== "global" ? ` (${e._scope})` : "";
   const derives = e["derives-from"] ? ` (← ${e["derives-from"]})` : "";
 
   if (e.summary) {
-    console.log(`<!-- CONVENTION:${e.id}${scopeSuffix} -->\n**📏 ${e.id}:** ${e.summary}${derives}\n<!-- /CONVENTION:${e.id} -->`);
+    console.log(`<!-- FLOW:${e.id}${scopeSuffix} -->\n**🌊 ${e.id}:** ${e.summary}${derives}\n<!-- /FLOW:${e.id} -->`);
     return;
   }
-  let output = `<!-- CONVENTION:${e.id}${scopeSuffix} -->\n## 📏 ${e.id}: ${e.title}\n\n${e._body}\n<!-- /CONVENTION:${e.id} -->`;
+  let output = `<!-- FLOW:${e.id}${scopeSuffix} -->\n## 🌊 ${e.id}: ${e.title}\n\n${e._body}\n<!-- /FLOW:${e.id} -->`;
   if (output.length > INJECT_CHAR_LIMIT) {
     let truncated = output.slice(0, INJECT_CHAR_LIMIT);
     const lastNl = truncated.lastIndexOf("\n");
     if (lastNl > INJECT_CHAR_LIMIT / 2) truncated = truncated.slice(0, lastNl);
-    output = truncated + `\n\n⚠️ TRUNCATED — run \`dna convention ${e.id}\` for full text.\n<!-- /CONVENTION:${e.id} -->`;
+    output = truncated + `\n\n⚠️ TRUNCATED — run \`dna flow ${e.id}\` for full text.\n<!-- /FLOW:${e.id} -->`;
   }
   console.log(output);
 }
@@ -207,8 +207,8 @@ function cmdSearch(query: string, scope: Scope) {
     const searchable = `${e.title || ""} ${e._body || ""} ${e.tags || ""}`;
     return searchable.toLowerCase().includes(q);
   });
-  if (!results.length) { console.log(`No conventions matching '${query}'`); return; }
-  console.log(`🔍 ${results.length} conventions matching '${query}':\n`);
+  if (!results.length) { console.log(`No flows matching '${query}'`); return; }
+  console.log(`🔍 ${results.length} flows matching '${query}':\n`);
   for (const e of results) console.log(`  ${e.id} [${e._scope || "global"}]: ${e.title}`);
 }
 
@@ -218,7 +218,7 @@ function slugToTitle(slug: string): string {
 
 function targetDir(scope: Scope): { dir: string; scopeLabel: string } {
   if (scope.local && scope.workspace) {
-    return { dir: join(scope.workspace, ".dna/conventions"), scopeLabel: "local" };
+    return { dir: join(scope.workspace, ".dna/flows"), scopeLabel: "local" };
   }
   return { dir: GLOBAL_DIR, scopeLabel: "global" };
 }
@@ -227,7 +227,7 @@ function cmdAdd(slug: string, scope: Scope) {
   const { dir, scopeLabel } = targetDir(scope);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const filePath = join(dir, `${slug}.md`);
-  if (existsSync(filePath)) { console.error(`❌ Convention already exists: ${slug}`); process.exit(1); }
+  if (existsSync(filePath)) { console.error(`❌ Flow already exists: ${slug}`); process.exit(1); }
   const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\nderives-from: ""\ntags: []\nsummary: ""\n---\n\n# ${slug}\n\n## Rule\n\n(describe the rule here)\n`;
   writeFileSync(filePath, template, "utf-8");
   const editor = process.env.EDITOR || "vi";
@@ -238,7 +238,7 @@ function cmdAdd(slug: string, scope: Scope) {
 function cmdEdit(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
-  if (!e || !e._path) { console.error(`❌ Convention not found in scope: ${slug}`); process.exit(1); }
+  if (!e || !e._path) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   const editor = process.env.EDITOR || "vi";
   execSync(`${editor} ${e._path}`, { stdio: "inherit" });
 }
@@ -246,7 +246,7 @@ function cmdEdit(slug: string, scope: Scope) {
 function cmdRm(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
-  if (!e || !e._path) { console.error(`❌ Convention not found in scope: ${slug}`); process.exit(1); }
+  if (!e || !e._path) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   const filePath = e._path;
   try {
     execSync(`which trash`, { stdio: "ignore" });
@@ -308,7 +308,7 @@ else if (args.includes("--rm")) {
   cmdRm(slug, scope);
 }
 else if (args[0] === "--agent" && args.length === 2) {
-  // Legacy: `dna convention --agent <id>` with no other action → list
+  // Legacy: `dna flow --agent <id>` with no other action → list
   cmdList(scope);
 }
 else {

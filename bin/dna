@@ -39,8 +39,15 @@ case "$subcmd" in
   convention)
     exec node --experimental-strip-types "$DNA_CODE/scripts/convention-cli.ts" "$@"
     ;;
+  architecture)
+    exec node --experimental-strip-types "$DNA_CODE/scripts/architecture-cli.ts" "$@"
+    ;;
   workflow)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/workflow-cli.ts" "$@"
+    echo "⚠️  'dna workflow' renamed to 'dna architecture'. Update your scripts." >&2
+    exec node --experimental-strip-types "$DNA_CODE/scripts/architecture-cli.ts" "$@"
+    ;;
+  flow)
+    exec node --experimental-strip-types "$DNA_CODE/scripts/flow-cli.ts" "$@"
     ;;
   tool)
     exec node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" "$@"
@@ -53,7 +60,7 @@ case "$subcmd" in
     ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
-    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/workflows"
+    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/architectures" "$DATA_DIR/flows"
     echo "🧬 DNA initialized at $DATA_DIR"
     echo "Add philosophy entries to $DATA_DIR/philosophy/"
     echo "Add conventions to $DATA_DIR/conventions/"
@@ -68,7 +75,8 @@ case "$subcmd" in
     echo "  spec          GBTD spec operations"
     echo "  philosophy    Philosophy database"
     echo "  convention    Convention rules — global & local"
-    echo "  workflow      Workflow levels — git/CI/deploy paradigms"
+    echo "  architecture  Architecture paradigms — git/CI/deploy levels"
+  echo "  flow          Flow procedures — global & local"
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
     echo "  cron          Cron operations: frequency up/down"
@@ -77,6 +85,7 @@ case "$subcmd" in
     echo "Examples:"
     echo "  dna init"
     echo "  dna hydrate --all"
+    echo "  dna flow --list"
     ;;
   *)
     # Fallback: try tool routing (e.g. dna cron → dna tool cron)

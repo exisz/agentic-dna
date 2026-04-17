@@ -69,6 +69,31 @@ export function resolveAgentWorkspace(agentId: string): string | null {
 }
 
 /**
+ * Walk up from CWD to find an OpenClaw workspace root (a directory
+ * directly under one of WORKSPACE_ROOTS, or any directory containing
+ * a `dna.yaml` file). Returns the absolute path or null.
+ */
+export function workspaceFromCwd(startDir?: string): string | null {
+  let dir = resolve(startDir || process.cwd());
+  const root = "/";
+  while (dir && dir !== root) {
+    // Direct child of a known WORKSPACE_ROOTS entry
+    for (const wsRoot of WORKSPACE_ROOTS) {
+      try {
+        const rel = dir.startsWith(wsRoot + "/") ? dir.slice(wsRoot.length + 1) : null;
+        if (rel && !rel.includes("/")) return dir;
+      } catch {}
+    }
+    // Fallback: any dir with dna.yaml is a workspace
+    if (existsSync(join(dir, "dna.yaml"))) return dir;
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
  * Load and parse a YAML file. Returns null if file doesn't exist.
  */
 export function loadYaml(path: string): any {

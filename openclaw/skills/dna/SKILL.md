@@ -1,6 +1,6 @@
 ---
 name: dna
-description: "DNA — an agent governing knowledge system. Core modules: spec (GBTD), philosophy (structured wisdom), convention (actionable rules), workflow (git/CI/deploy paradigms), inbox (agent message routing). Unified CLI: `dna`. Triggers on: spec, dna.yaml, GBTD, philosophy, convention, workflow, git workflow, branching strategy, dna."
+description: "DNA — an agent governing knowledge system. Core modules: spec (GBTD), philosophy (structured wisdom), convention (actionable rules), architecture (git/CI/deploy paradigms), flow (executable procedures), inbox (agent message routing). Unified CLI: `dna`. Triggers on: spec, dna.yaml, GBTD, philosophy, convention, architecture, flow, git workflow, branching strategy, dna."
 ---
 
 # DNA — Agent Governance System
@@ -14,7 +14,8 @@ A governing knowledge system for autonomous agents. Five modules, one CLI.
 | `spec` | `references/spec.md` | GBTD (Goal/Boundary/Tools/Deprecated), dna.yaml format | Writing or auditing dna.yaml |
 | `philosophy` | `references/philosophy.md` | Structured wisdom database with slug-based entries | When you need a guiding principle |
 | `convention` | `references/convention.md` | Actionable rules — global and local (agent dna.yaml) | When you need a specific "use X not Y" rule |
-| `workflow` | `references/workflow.md` | Git/CI/deploy paradigms — branching, PR, QA gates, merge authority | Setting up project git/deploy workflow |
+| `architecture` | `references/architecture.md` | Git/CI/deploy paradigms — branching, PR, QA gates, merge authority | Setting up project git/deploy architecture |
+| `flow` | (data directory) | Executable procedures — ordered step sequences for multi-stage tasks | When you need a repeatable end-to-end procedure |
 | `inbox` | (data directory) | Agent inbox system — per-source response guides | When checking or responding to inbox items |
 
 ## dna.yaml — Agent DNA
@@ -88,12 +89,20 @@ dna convention --agent <agent>                  # Agent's local conventions
 dna convention --agent <agent> --all            # Global + local
 dna convention --search "keyword"               # Search
 
-# ── Workflow (git/CI/deploy paradigms) ───────
-dna workflow --list                              # List all workflow levels
-dna workflow <level>                             # Full workflow definition
-dna workflow --inject <level>                    # Injectable format
-dna workflow --agent <agent>                     # Agent's assigned workflow
-dna workflow --search "keyword"                  # Search workflows
+# ── Architecture (git/CI/deploy paradigms) ───────
+dna architecture --list                          # List all architecture paradigms
+dna architecture <level>                         # Full architecture definition
+dna architecture --inject <level>                # Injectable format
+dna architecture --agent <agent>                 # Agent's assigned architecture
+dna architecture --search "keyword"              # Search architectures
+
+# ── Flow (executable procedures) ──────────────
+dna flow --list                                  # List all flows
+dna flow <slug>                                  # Full flow definition
+dna flow --inject <slug>                         # Injectable format
+dna flow --search "keyword"                      # Search flows
+dna flow --add <slug>                            # Create new flow
+dna flow --agent <id>                            # Force workspace target
 
 # ── Inbox (agent message routing) ─────────────
 dna inbox ls --agent <agent>                    # Actionable inbox items

@@ -9,6 +9,7 @@
  * Protects directives inside code blocks (```) and inline code (`).
  */
 import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 // ─── Config ─────────────────────────────────────────────────
 
@@ -18,8 +19,37 @@ const DNA_DIRECTIVE_RE = /\{\{dna\s+([^}]+)\}\}/g;
 /** Maximum characters for a single dna CLI expansion output */
 const DNA_INJECT_CHAR_LIMIT = 2000;
 
-/** Full path to the dna CLI (launchd may not have ~/.local/bin in PATH) */
-const DNA_CLI_PATH = `${process.env.HOME}/.local/bin/dna`;
+/** Full path to the dna CLI. Resolved at first use via PATH;
+ * fallback candidates cover common install locations (launchd/cron
+ * may not have npm globals in PATH). */
+let resolvedDnaCliPath: string | null = null;
+function getDnaCliPath(): string {
+  if (resolvedDnaCliPath) return resolvedDnaCliPath;
+  // 1. PATH lookup (with home/npm-global paths prepended for cron/launchd)
+  try {
+    const found = execSync("command -v dna", {
+      encoding: "utf-8",
+      shell: "/bin/sh",
+      env: {
+        ...process.env,
+        PATH: `/opt/homebrew/bin:${process.env.HOME}/.local/bin:${process.env.HOME}/.nvm/versions/node/v24.14.0/bin:${process.env.PATH ?? "/usr/bin:/bin"}`,
+      },
+    }).trim();
+    if (found) { resolvedDnaCliPath = found; return found; }
+  } catch {}
+  // 2. Fallback candidates
+  const home = process.env.HOME || "";
+  const candidates = [
+    `${home}/.local/bin/dna`,
+    `/opt/homebrew/bin/dna`,
+    `/usr/local/bin/dna`,
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) { resolvedDnaCliPath = c; return c; }
+  }
+  resolvedDnaCliPath = "dna"; // last resort — rely on PATH at exec time
+  return resolvedDnaCliPath;
+}
 
 /** Maximum time (ms) for a single dna CLI invocation */
 const DNA_CLI_TIMEOUT_MS = 10_000;
@@ -51,7 +81,7 @@ function runDnaCli(args: string, logger: Logger): string {
   if (cached !== undefined) return cached;
 
   try {
-    const output = execSync(`${DNA_CLI_PATH} ${args}`, {
+    const output = execSync(`${getDnaCliPath()} ${args}`, {
       encoding: "utf-8",
       timeout: DNA_CLI_TIMEOUT_MS,
       env: {

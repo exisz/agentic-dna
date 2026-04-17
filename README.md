@@ -16,7 +16,7 @@ Agentic DNA provides a structured governance layer for multi-agent systems — d
 - **Philosophy DB** — Universal principles shared across all agents
 - **Convention DB** — Actionable rules (global or workspace-scoped)
 - **Toolbox** — Shared CLI/tool documentation
-- **Workflow Paradigms** — Git/CI/deploy level management
+- **Architecture Paradigms** — Git/CI/deploy level management
 - **Adaptive Cron** — Dynamic frequency adjustment
 - **Policy Injection** — Automatic cron and interactive session policies
 - **Directive Expansion** — `{{dna ...}}` directives in bootstrap files
@@ -66,7 +66,7 @@ dna tool <name>                # View tool GBTD
 dna hydrate --all              # Expand all {{dna}} directives
 dna cron up <id>               # Increase cron frequency
 dna cron down <id>             # Decrease cron frequency
-dna workflow --list            # List workflow levels
+dna architecture --list        # List architecture paradigms
 dna skill ls                   # List manual skills
 ```
 

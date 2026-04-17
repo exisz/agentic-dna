@@ -1,6 +1,6 @@
-# Workflow System — Git, CI, Deploy & Merge Paradigms
+# Architecture System — Git, CI, Deploy & Merge Paradigms
 
-Every project declares a `workflow:` field in its agent's `dna.yaml`. The workflow determines git branching strategy, CI pipeline shape, QA gates, and agent merge authority.
+Every project declares an `architecture:` field in its agent's `dna.yaml`. The architecture determines git branching strategy, CI pipeline shape, QA gates, and agent merge authority.
 
 ## Two-Second Decision Tree
 
@@ -13,7 +13,7 @@ Human must approve every merge?          → dev-pr-human-merge
 Enterprise-grade multi-gate?             → advanced (placeholder)
 ```
 
-## Workflow Levels (ordered by increasing rigour)
+## Architecture Levels (ordered by increasing rigour)
 
 | ID | Branches | PR | QA On | Agent Can Merge | Human Review |
 |----|----------|----|-------|-----------------|--------------|
@@ -29,15 +29,15 @@ Enterprise-grade multi-gate?             → advanced (placeholder)
 In the agent's `dna.yaml`:
 
 ```yaml
-workflow: basic-dev
+architecture: basic-dev
 ```
 
 ## CLI
 
 ```bash
-dna workflow --list                   # List all workflow levels
-dna workflow basic                    # Show full workflow definition
-dna workflow --inject basic           # Injectable format for AGENTS.md
-dna workflow --agent <agent>          # Show which workflow an agent uses
-dna workflow --search "human"         # Search workflows
+dna architecture --list                   # List all architecture paradigms
+dna architecture basic                    # Show full architecture definition
+dna architecture --inject basic           # Injectable format for AGENTS.md
+dna architecture --agent <agent>          # Show which architecture an agent uses
+dna architecture --search "human"         # Search architectures
 ```

@@ -10,7 +10,7 @@ openclaw plugins install openclaw-dna
 
 ## What's included
 
-- **DNA CLI commands** — `dna spec`, `dna philosophy`, `dna convention`, `dna workflow`, `dna cron`, and more
+- **DNA CLI commands** — `dna spec`, `dna philosophy`, `dna convention`, `dna architecture`, `dna flow`, `dna cron`, and more
 - **`dna` skill** — governance skill auto-registered with OpenClaw
 
 ## Docs
