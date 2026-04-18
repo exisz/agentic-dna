@@ -110,19 +110,32 @@ function loadLocalLegacyYaml(workspace: string): Array<Record<string, any>> {
     }
     return data;
   })();
-  const conventions: Array<Record<string, any>> = root?.conventions || [];
+  const conventions: Array<any> = root?.conventions || [];
   if (!conventions.length) return [];
   // Warn once
   console.error(`⚠️  ${workspace}/dna.yaml has legacy yaml conventions — migrate to <workspace>/.dna/conventions/*.md`);
-  return conventions.map((c: any) => ({
-    id: c.id,
-    title: c.title || c.id,
-    "derives-from": c["derives-from"] || "",
-    summary: (c.rule || "").toString().replace(/\s+/g, " ").trim(),
-    _body: (c.rule || "").toString().trim(),
-    _scope: "local-legacy",
-    _workspace: workspace,
-  }));
+  const results: Array<Record<string, any>> = [];
+  for (const c of conventions) {
+    // String entry = workspace reference to a global slug (e.g. "- sso-logto")
+    if (typeof c === "string") {
+      results.push({ id: c, title: c, "derives-from": "", summary: "", _body: "", _scope: "local-legacy-ref", _workspace: workspace });
+      continue;
+    }
+    if (!c || typeof c !== "object" || !c.id) {
+      console.warn(`⚠️  Skipping malformed convention entry in ${workspace}/dna.yaml (missing id):`, JSON.stringify(c));
+      continue;
+    }
+    results.push({
+      id: c.id,
+      title: c.title || c.id,
+      "derives-from": c["derives-from"] || "",
+      summary: (c.rule || "").toString().replace(/\s+/g, " ").trim(),
+      _body: (c.rule || "").toString().trim(),
+      _scope: "local-legacy",
+      _workspace: workspace,
+    });
+  }
+  return results;
 }
 
 function loadEntriesForScope(scope: Scope): Array<Record<string, any>> {
