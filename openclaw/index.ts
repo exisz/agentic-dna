@@ -46,6 +46,10 @@ DNA is the governing knowledge system. Before writing anything, know where it be
 Key: if it's universal wisdom → philosophy. If it's an actionable rule → convention. If it's agent-specific → TOOLS.md or dna.yaml.
 </openclaw-dna-guide>`;
 
+const REALM_HINT = `<openclaw-realm-hint>
+For agentless sandbox/scratch workspaces, use \`agentrealm\` (CLI: \`realm\`). Run \`realm skill\` for usage.
+</openclaw-realm-hint>`;
+
 const CRON_POLICY = `<openclaw-cron-policy>
 ## Cron Session Rules (MANDATORY — you are running as a scheduled cron job)
 
@@ -90,6 +94,7 @@ const plugin = {
       (_event, ctx) => {
         const isCron = ctx.trigger === "cron";
         let injectable = DNA_KNOWLEDGE_GUIDE;
+        injectable += "\n\n" + REALM_HINT;
         injectable += "\n\n" + (isCron ? CRON_POLICY : INTERACTIVE_POLICY);
         return { appendSystemContext: injectable };
       },

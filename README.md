@@ -88,6 +88,33 @@ make install
 make clean
 ```
 
+## Repository Structure
+
+This is a **monorepo** that publishes two npm packages from a single repository:
+
+| Package | Description |
+|---------|-------------|
+| [`agentic-dna`](https://www.npmjs.com/package/agentic-dna) | The standalone `dna` CLI tool |
+| [`openclaw-dna`](https://www.npmjs.com/package/openclaw-dna) | The OpenClaw plugin (source: `openclaw/index.ts`) |
+
+```
+agentic-dna/
+├── bin/
+│   └── dna                   # CLI entry — routes all `dna` subcommands
+├── lib/                      # Shared CLI implementation modules
+│   └── expand.ts             # {{dna}} directive expansion
+├── openclaw/                 # OpenClaw plugin — published as `openclaw-dna` npm package
+│   ├── index.ts              # Plugin entry: policy injection + directive expansion
+│   ├── dist/                 # Build output (run `cd openclaw && pnpm build`)
+│   ├── skills/               # Bundled AgentSkills
+│   ├── package.json          # openclaw-dna package manifest
+│   └── openclaw.plugin.json  # OpenClaw plugin descriptor
+├── scripts/                  # Utility/build scripts
+└── test/                     # Tests
+```
+
+> **Note for OpenClaw users:** The `openclaw-dna` plugin source lives here at `openclaw/index.ts`. There is no separate `openclaw-dna` repository — both packages are developed and released from this repo.
+
 ## Project Structure
 
 ```

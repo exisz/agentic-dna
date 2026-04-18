@@ -1,3 +1,5 @@
+<!-- Source: `openclaw/` directory in the [agentic-dna](https://github.com/exisz/agentic-dna) monorepo. Plugin entry: `openclaw/index.ts`. Build: `cd openclaw && pnpm build` → `openclaw/dist/`. -->
+
 # openclaw-dna
 
 OpenClaw plugin for [agentic-dna](https://github.com/exisz/agentic-dna) — the agent governance system.
