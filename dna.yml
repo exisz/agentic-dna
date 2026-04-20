@@ -1,0 +1,8 @@
+id: dna://repo/exisz-agentic-dna
+type: repo
+title: agentic-dna (the source of truth)
+package_name: agentic-dna
+package_version: "0.6.0"
+links:
+  - dna://agent/nebula
+description: "Pushed from upstream as ground truth for the shadow."
