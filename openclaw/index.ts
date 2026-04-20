@@ -14,6 +14,8 @@
  *
  * Directive syntax: {{dna <subcommand> <args...>}}
  */
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { createPhilosophyTool } from "./tools/dna-philosophy.ts";
 import { createConventionTool } from "./tools/dna-convention.ts";
@@ -23,60 +25,57 @@ import {
   clearCache,
 } from "../lib/expand.ts";
 
-// ─── Prompt Injection Content ───────────────────────────────
+// ─── Prompt Injection Loader ─────────────────────────────────
 
-const DNA_KNOWLEDGE_GUIDE = `<openclaw-dna-guide>
-## Where Information Lives — DNA System
+const HOME = process.env.HOME!;
+const DNA_DATA = process.env.DNA_DATA || join(HOME, ".openclaw/.dna");
 
-DNA is the governing knowledge system. Before writing anything, know where it belongs:
+interface Injection {
+  id: string;
+  trigger: "always" | "cron" | "interactive";
+  content: string;
+}
 
-| What | Where | CLI |
-|------|-------|-----|
-| Agent identity (goal/boundary/tools) | \`dna.yaml\` at workspace root | \`dna spec <agent>\` |
-| Deprecated patterns | \`dna.yaml\` → \`deprecated:\` section | \`dna spec <agent> --deprecated\` |
-| Universal principles | Philosophy DB | \`dna philosophy <slug>\` |
-| Actionable rules (global or local) | Convention DB | \`dna convention <slug>\` or in \`dna.yaml\` → \`conventions:\` |
-| Protocol paradigms (git/CI/deploy) | Protocol DB | \`dna protocol <slug>\` |
-| Flow procedures (executable steps) | Flow DB | \`dna flow <slug>\` |
-| Shared CLIs/tools | DNA Toolbox | \`dna tool ls\` / \`dna tool <name>\` |
-| Agent-specific tool notes | \`TOOLS.md\` | (workspace file) |
-| Recurring tasks / schedules | \`orchestration.yaml\` / \`CRON_ENTRYPOINT*.md\` | \`dna cron investigate\` |
-| Lessons / personal context | \`MEMORY.md\` | (fallback — lowest priority) |
+function loadInjections(): Injection[] {
+  const dir = join(DNA_DATA, "injections");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => {
+      const raw = readFileSync(join(dir, f), "utf-8");
+      if (!raw.startsWith("---")) return null;
+      const end = raw.indexOf("---", 3);
+      if (end === -1) return null;
+      const fmText = raw.slice(3, end).trim();
+      const body = raw.slice(end + 3).trim();
+      const meta: Record<string, string> = {};
+      for (const line of fmText.split("\n")) {
+        const m = line.match(/^(\w[\w-]*)\s*:\s*(.+)$/);
+        if (m) meta[m[1]] = m[2].trim();
+      }
+      return {
+        id: meta.id || f.replace(/\.md$/, ""),
+        trigger: (meta.trigger || "always") as Injection["trigger"],
+        content: body,
+      };
+    })
+    .filter(Boolean) as Injection[];
+}
 
-Key: if it's universal wisdom → philosophy. If it's an actionable rule → convention. If it's agent-specific → TOOLS.md or dna.yaml.
-</openclaw-dna-guide>`;
-
-const REALM_HINT = `<openclaw-realm-hint>
-For agentless sandbox/scratch workspaces, use \`agentrealm\` (CLI: \`realm\`). Run \`realm skill\` for usage.
-</openclaw-realm-hint>`;
-
-const CRON_POLICY = `<openclaw-cron-policy>
-## Cron Session Rules (MANDATORY — you are running as a scheduled cron job)
-
-⛔ **NO subagents. Ever.**
-- Do NOT call sessions_spawn, sessions_send, or any subagent tool.
-- Subagents fail to yield back to cron sessions — this causes silent data loss and cascading failures.
-- All work must be done directly in THIS session using direct tool calls.
-
-⚠️ **Time budget awareness.**
-- Cron sessions have hard timeouts. Prioritize completing the highest-value work first.
-- Write checkpoint/progress notes to files as you go so the next run can resume.
-- If you cannot finish everything, finish something — partial progress beats a timeout with nothing committed.
-
-📋 **Reply discipline.**
-- End your session with a brief summary of what was done (for the cron announce delivery).
-- Do not output NO_REPLY in cron sessions unless there is truly nothing to report.
-</openclaw-cron-policy>`;
-
-const INTERACTIVE_POLICY = `<openclaw-work-policy>
-## Work Execution Policy (non-cron sessions)
-
-🔀 **Prefer subagents for implementation work.**
-- When the task involves writing code, running tests, making changes, or any multi-step implementation: spawn a subagent.
-- Do the thinking, planning, and analysis yourself. Delegate the doing.
-- This keeps your context clean and lets you orchestrate rather than execute.
-- Exception: trivial one-shot tasks (single file edit, quick lookup) can be done directly.
-</openclaw-work-policy>`;
+function getInjectionText(isCron: boolean): string {
+  const injections = loadInjections();
+  const parts = injections
+    .filter((inj) => {
+      if (inj.trigger === "always") return true;
+      if (inj.trigger === "cron") return isCron;
+      if (inj.trigger === "interactive") return !isCron;
+      return false;
+    })
+    .map((inj) => inj.content);
+  if (parts.length === 0) return "";
+  return `<openclaw-dna>\n${parts.join("\n\n")}\n</openclaw-dna>`;
+}
 
 // ─── Plugin Registration ────────────────────────────────────
 
@@ -93,9 +92,8 @@ const plugin = {
       "before_prompt_build",
       (_event, ctx) => {
         const isCron = ctx.trigger === "cron";
-        let injectable = DNA_KNOWLEDGE_GUIDE;
-        injectable += "\n\n" + REALM_HINT;
-        injectable += "\n\n" + (isCron ? CRON_POLICY : INTERACTIVE_POLICY);
+        const injectable = getInjectionText(isCron);
+        if (!injectable) return {};
         return { appendSystemContext: injectable };
       },
       { priority: 5 },

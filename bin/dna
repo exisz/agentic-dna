@@ -11,6 +11,9 @@ while [ -L "$_self" ]; do
 done
 DNA_CODE="$(cd "$(dirname "$_self")/.." && pwd)"
 
+# tsx runtime (bundled as a dependency)
+TSX="$DNA_CODE/node_modules/.bin/tsx"
+
 # Data directory: ~/.dna > ~/.openclaw/.dna > ~/.agentic-dna
 if [ -d "$HOME/.dna" ]; then
   DNA_DATA="$HOME/.dna"
@@ -31,36 +34,39 @@ shift 2>/dev/null
 
 case "$subcmd" in
   spec)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/spec-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/spec-cli.ts" "$@"
     ;;
   philosophy)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/philosophy-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/philosophy-cli.ts" "$@"
     ;;
   convention)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/convention-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/convention-cli.ts" "$@"
     ;;
   protocol)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
     ;;
   architecture)
     echo "⚠️  'dna architecture' renamed to 'dna protocol'. Update your scripts." >&2
-    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
     ;;
   workflow)
     echo "⚠️  'dna workflow' renamed to 'dna protocol'. Update your scripts." >&2
-    exec node --experimental-strip-types "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
     ;;
   flow)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/flow-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/flow-cli.ts" "$@"
     ;;
   tool)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/tool-cli.ts" "$@"
     ;;
   skill)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/skill-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/skill-cli.ts" "$@"
     ;;
   hydrate)
-    exec node --experimental-strip-types "$DNA_CODE/scripts/hydrate-cli.ts" "$@"
+    exec "$TSX" "$DNA_CODE/scripts/hydrate-cli.ts" "$@"
+    ;;
+  injection)
+    exec "$TSX" "$DNA_CODE/scripts/injection-cli.ts" "$@"
     ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
@@ -86,6 +92,7 @@ case "$subcmd" in
     echo "  skill         Manual skill operations"
     echo "  cron          Cron operations: frequency up/down"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
+    echo "  injection     Prompt injection files"
     echo ""
     echo "Examples:"
     echo "  dna init"
@@ -94,7 +101,7 @@ case "$subcmd" in
     ;;
   *)
     # Fallback: try tool routing (e.g. dna cron → dna tool cron)
-    node --experimental-strip-types "$DNA_CODE/scripts/tool-cli.ts" --run "$subcmd" "$@"
+    "$TSX" "$DNA_CODE/scripts/tool-cli.ts" --run "$subcmd" "$@"
     _exit=$?
     if [ $_exit -eq 127 ]; then
       echo "Unknown subcommand: $subcmd" >&2

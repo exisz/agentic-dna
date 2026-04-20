@@ -171,6 +171,15 @@ if [ -n "$ROOT_LAYOUT" ]; then
     warn "No sitemap.ts/xml found"
   else
     ok "Sitemap present"
+    # 🟥 With output:export, sitemap.ts MUST declare force-static or build fails
+    HAS_OUTPUT_EXPORT=$(grep -l 'output:.*["'"'"']export["'"'"']' "$DIR"/next.config.* 2>/dev/null | head -1 || true)
+    if [ -n "$HAS_OUTPUT_EXPORT" ] && [[ "$HAS_SITEMAP" == *.ts ]]; then
+      if ! grep -q 'force-static' "$HAS_SITEMAP"; then
+        err "sitemap.ts missing 'export const dynamic = \"force-static\"' (required with output:export, otherwise build fails)"
+      else
+        ok "sitemap.ts has force-static directive"
+      fi
+    fi
   fi
 else
   warn "No root layout found"
