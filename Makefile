@@ -1,7 +1,8 @@
 .PHONY: build install dev clean pack
 
-# Build the OpenClaw plugin (TS → JS)
+# Build CLI (tsup) + OpenClaw plugin (TS → JS)
 build:
+	pnpm build
 	cd openclaw && pnpm build
 
 # Build + copy-install to OpenClaw
@@ -23,7 +24,7 @@ dev: install
 
 # Clean build artifacts
 clean:
-	rm -rf openclaw/dist
+	rm -rf dist openclaw/dist
 
 # Pack for npm publish
 pack: build

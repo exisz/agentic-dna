@@ -1,6 +1,7 @@
 #!/bin/sh
 # DNA CLI — Agentic DNA unified command
 # Routes subcommands to appropriate handlers
+# Dual-mode: dev (tsx + scripts/*.ts) vs published (node + dist/scripts/*.js)
 
 # Resolve symlinks to find real repo location
 _self="$0"
@@ -10,9 +11,6 @@ while [ -L "$_self" ]; do
   case "$_self" in /*) ;; *) _self="$_dir/$_self" ;; esac
 done
 DNA_CODE="$(cd "$(dirname "$_self")/.." && pwd)"
-
-# tsx runtime (bundled as a dependency)
-TSX="$DNA_CODE/node_modules/.bin/tsx"
 
 # Data directory: ~/.dna > ~/.openclaw/.dna > ~/.agentic-dna
 if [ -d "$HOME/.dna" ]; then
@@ -24,55 +22,61 @@ else
 fi
 export DNA_DATA
 
-_placeholder() {
-  echo "🚧 dna $1 — not yet implemented (coming soon)" >&2
-  exit 1
-}
+# Runtime detection: dev mode (tsx + .ts) vs published (node + .js)
+if [ -f "$DNA_CODE/scripts/spec-cli.ts" ] && [ -x "$DNA_CODE/node_modules/.bin/tsx" ]; then
+  TSX="$DNA_CODE/node_modules/.bin/tsx"
+  SCRIPTS="$DNA_CODE/scripts"
+  EXT="ts"
+else
+  TSX="node"
+  SCRIPTS="$DNA_CODE/dist/scripts"
+  EXT="js"
+fi
 
 subcmd="${1:-help}"
 shift 2>/dev/null
 
 case "$subcmd" in
   spec)
-    exec "$TSX" "$DNA_CODE/scripts/spec-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/spec-cli.$EXT" "$@"
     ;;
   philosophy)
-    exec "$TSX" "$DNA_CODE/scripts/philosophy-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/philosophy-cli.$EXT" "$@"
     ;;
   convention)
-    exec "$TSX" "$DNA_CODE/scripts/convention-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/convention-cli.$EXT" "$@"
     ;;
   protocol)
-    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   architecture)
     echo "⚠️  'dna architecture' renamed to 'dna protocol'. Update your scripts." >&2
-    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   workflow)
     echo "⚠️  'dna workflow' renamed to 'dna protocol'. Update your scripts." >&2
-    exec "$TSX" "$DNA_CODE/scripts/protocol-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   flow)
-    exec "$TSX" "$DNA_CODE/scripts/flow-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/flow-cli.$EXT" "$@"
     ;;
   tool)
-    exec "$TSX" "$DNA_CODE/scripts/tool-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/tool-cli.$EXT" "$@"
     ;;
   skill)
-    exec "$TSX" "$DNA_CODE/scripts/skill-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/skill-cli.$EXT" "$@"
     ;;
   hydrate)
-    exec "$TSX" "$DNA_CODE/scripts/hydrate-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/hydrate-cli.$EXT" "$@"
     ;;
   injection)
-    exec "$TSX" "$DNA_CODE/scripts/injection-cli.ts" "$@"
+    exec "$TSX" "$SCRIPTS/injection-cli.$EXT" "$@"
     ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
-    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/protocols" "$DATA_DIR/flows"
+    mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/protocols" "$DATA_DIR/flows" "$DATA_DIR/injections"
     echo "🧬 DNA initialized at $DATA_DIR"
-    echo "Add philosophy entries to $DATA_DIR/philosophy/"
+    echo "Add philosophy entries to $DATA_DIR/philosophies/"
     echo "Add conventions to $DATA_DIR/conventions/"
     echo "Add protocols to $DATA_DIR/protocols/"
     ;;
@@ -86,11 +90,10 @@ case "$subcmd" in
     echo "  spec          GBTD spec operations"
     echo "  philosophy    Philosophy database"
     echo "  convention    Convention rules — global & local"
-    echo "  protocol       Protocol paradigms — git/CI/deploy levels"
-  echo "  flow           Flow procedures — global & local"
+    echo "  protocol      Protocol paradigms — git/CI/deploy levels"
+    echo "  flow          Flow procedures — global & local"
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
-    echo "  cron          Cron operations: frequency up/down"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
     echo "  injection     Prompt injection files"
     echo ""
@@ -101,7 +104,7 @@ case "$subcmd" in
     ;;
   *)
     # Fallback: try tool routing (e.g. dna cron → dna tool cron)
-    "$TSX" "$DNA_CODE/scripts/tool-cli.ts" --run "$subcmd" "$@"
+    "$TSX" "$SCRIPTS/tool-cli.$EXT" --run "$subcmd" "$@"
     _exit=$?
     if [ $_exit -eq 127 ]; then
       echo "Unknown subcommand: $subcmd" >&2
