@@ -1845,8 +1845,14 @@ function cmdLint(args: string[]) {
     for (const p of extensionHintMismatches) console.log(`   ${relPath(p)}`);
   }
   // Orphan governance: philosophy/convention/flow with no inbound
+  // Nodes with `scope: global` or any `governs` outbound edge are not orphans.
   const govTypes = new Set(["philosophy", "convention", "flow", "protocol"]);
-  const orphans = [...g.nodes.values()].filter(n => govTypes.has(n.type) && !(g.inbound.get(n.id)?.size));
+  const orphans = [...g.nodes.values()].filter(n =>
+    govTypes.has(n.type) &&
+    !(g.inbound.get(n.id)?.size) &&
+    n.fields.scope !== "global" &&
+    !n.outbound.some(e => e.kind === "governs")
+  );
   if (orphans.length) {
     console.log(`\ni️  Orphan governance nodes (${orphans.length}, no inbound refs):`);
     for (const o of orphans.slice(0, 20)) console.log(`   ${o.id}`);
