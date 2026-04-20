@@ -31,8 +31,21 @@ import {
   workspaceFromCwd,
   loadYaml,
 } from "../lib/common.ts";
+import { buildGraph, getNodesByType, nodeToEntry } from "./mesh-cli.ts";
 
 const GLOBAL_DIR = join(DNA_DATA, "conventions");
+
+/** Load global convention entries via mesh graph. */
+function loadGlobalConventions(): Array<Record<string, any>> {
+  const graph = buildGraph();
+  const nodes = getNodesByType(graph, "convention");
+  nodes.sort((a, b) => {
+    const ai = (a.fields.id || '').toString() + '.md';
+    const bi = (b.fields.id || '').toString() + '.md';
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+  return nodes.map(n => ({ ...nodeToEntry(n), _scope: "global" }));
+}
 
 const HELP = `📏 DNA Convention CLI
 
@@ -98,7 +111,9 @@ function loadLocalDir(workspace: string): Array<Record<string, any>> {
 }
 
 function loadLocalLegacyYaml(workspace: string): Array<Record<string, any>> {
-  const dnaPath = join(workspace, "dna.yaml");
+  const dnaPath = existsSync(join(workspace, "dna.yml"))
+    ? join(workspace, "dna.yml")
+    : join(workspace, "dna.yaml");
   if (!existsSync(dnaPath)) return [];
   const data = loadYaml(dnaPath);
   if (!data || typeof data !== "object") return [];
@@ -155,9 +170,9 @@ function loadEntriesForScope(scope: Scope): Array<Record<string, any>> {
     }
   }
   if (scope.global) {
-    for (const e of loadEntries(GLOBAL_DIR)) {
+    for (const e of loadGlobalConventions()) {
       if (!seen.has((e.id as string).toLowerCase())) {
-        merged.push({ ...e, _scope: "global" });
+        merged.push(e);
         seen.add((e.id as string).toLowerCase());
       }
     }

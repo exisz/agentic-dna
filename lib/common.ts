@@ -84,8 +84,8 @@ export function workspaceFromCwd(startDir?: string): string | null {
         if (rel && !rel.includes("/")) return dir;
       } catch {}
     }
-    // Fallback: any dir with dna.yaml is a workspace
-    if (existsSync(join(dir, "dna.yaml"))) return dir;
+    // Fallback: any dir with dna.yml / dna.yaml is a workspace
+    if (existsSync(join(dir, "dna.yml")) || existsSync(join(dir, "dna.yaml"))) return dir;
     const parent = resolve(dir, "..");
     if (parent === dir) break;
     dir = parent;

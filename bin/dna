@@ -60,6 +60,47 @@ case "$subcmd" in
   flow)
     exec "$TSX" "$SCRIPTS/flow-cli.$EXT" "$@"
     ;;
+  mesh)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" "$@"
+    ;;
+  # ── Mesh query shortcuts (NEBULA-54) ──────────────
+  tour)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" tour "$@"
+    ;;
+  ls)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" ls "$@"
+    ;;
+  find)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" find "$@"
+    ;;
+  show)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" show "$@"
+    ;;
+  whoami)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" whoami "$@"
+    ;;
+  links)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" links "$@"
+    ;;
+  refs)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" refs "$@"
+    ;;
+  impact)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" impact "$@"
+    ;;
+  # ── dna node <id> (NEBULA-55) ─────────────────────
+  node)
+    _node_id="${1:-}"
+    shift 2>/dev/null
+    _node_flag="${1:-}"
+    case "$_node_flag" in
+      --links)  exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" links "$_node_id" "$@" ;;
+      --refs)   exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" refs  "$_node_id" "$@" ;;
+      --impact) exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" impact "$_node_id" "$@" ;;
+      --tour)   exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" tour  "$_node_id" "$@" ;;
+      *)        exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" show  "$_node_id" "$_node_flag" "$@" ;;
+    esac
+    ;;
   tool)
     exec "$TSX" "$SCRIPTS/tool-cli.$EXT" "$@"
     ;;
@@ -92,13 +133,29 @@ case "$subcmd" in
     echo "  convention    Convention rules — global & local"
     echo "  protocol      Protocol paradigms — git/CI/deploy levels"
     echo "  flow          Flow procedures — global & local"
+    echo "  mesh          Graph queries over distributed dna files (scan/show/links/refs/impact/lint)"
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
     echo "  injection     Prompt injection files"
     echo ""
+    echo "Mesh queries (shortcuts — all delegate to dna mesh):"
+    echo "  node <id>     Primary node inspector (--links | --refs | --impact | --tour)"
+    echo "  tour [id]     Guided walkthrough of a node (or empire overview)"
+    echo "  ls [type]     List nodes, optionally filtered by type"
+    echo "  find <pat>    Find nodes matching a pattern"
+    echo "  show <id>     Node details + edges (short alias for node <id>)"
+    echo "  whoami        Show current agent context"
+    echo "  links <id>    Outbound edges"
+    echo "  refs <id>     Inbound edges"
+    echo "  impact <id>   Recursive inbound walk"
+    echo ""
     echo "Examples:"
     echo "  dna init"
+    echo "  dna tour"
+    echo "  dna ls project"
+    echo "  dna node dna://agent/nebula --links"
+    echo "  dna find metu"
     echo "  dna hydrate --all"
     echo "  dna flow --list"
     ;;

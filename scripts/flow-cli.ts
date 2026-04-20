@@ -31,8 +31,21 @@ import {
   workspaceFromCwd,
   loadYaml,
 } from "../lib/common.ts";
+import { buildGraph, getNodesByType, nodeToEntry } from "./mesh-cli.ts";
 
 const GLOBAL_DIR = join(DNA_DATA, "flows");
+
+/** Load global flow entries via mesh graph. */
+function loadGlobalFlows(): Array<Record<string, any>> {
+  const graph = buildGraph();
+  const nodes = getNodesByType(graph, "flow");
+  nodes.sort((a, b) => {
+    const ai = (a.fields.legacy_id || a.fields.id || '').toString() + '.md';
+    const bi = (b.fields.legacy_id || b.fields.id || '').toString() + '.md';
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+  return nodes.map(n => ({ ...nodeToEntry(n), _scope: "global" }));
+}
 
 const HELP = `🌊 DNA Flow CLI
 
@@ -61,6 +74,17 @@ interface Scope {
   local: boolean;
   workspace: string | null;
   agentId: string | null;
+}
+
+/** Match flow entry by slug — accepts legacy id, legacy_id field, or dna://flow/<slug> mesh id. */
+function matchFlow(entries: Array<Record<string, any>>, slug: string): Record<string, any> | undefined {
+  const want = slug.toLowerCase();
+  const meshId = "dna://flow/" + want;
+  return entries.find(e => {
+    const id = String(e.id || "").toLowerCase();
+    const legacy = String(e.legacy_id || "").toLowerCase();
+    return id === want || legacy === want || id === meshId;
+  });
 }
 
 function parseScope(args: string[]): Scope {
@@ -98,7 +122,9 @@ function loadLocalDir(workspace: string): Array<Record<string, any>> {
 }
 
 function loadLocalLegacyYaml(workspace: string): Array<Record<string, any>> {
-  const dnaPath = join(workspace, "dna.yaml");
+  const dnaPath = existsSync(join(workspace, "dna.yml"))
+    ? join(workspace, "dna.yml")
+    : join(workspace, "dna.yaml");
   if (!existsSync(dnaPath)) return [];
   const data = loadYaml(dnaPath);
   if (!data || typeof data !== "object") return [];
@@ -154,9 +180,9 @@ function loadEntriesForScope(scope: Scope): Array<Record<string, any>> {
     }
   }
   if (scope.global) {
-    for (const e of loadEntries(GLOBAL_DIR)) {
+    for (const e of loadGlobalFlows()) {
       if (!seen.has((e.id as string).toLowerCase())) {
-        merged.push({ ...e, _scope: "global" });
+        merged.push(e);
         seen.add((e.id as string).toLowerCase());
       }
     }
@@ -185,14 +211,14 @@ function cmdList(scope: Scope) {
 
 function cmdShow(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
-  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  const e = matchFlow(entries, slug);
   if (!e) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   console.log(e._body);
 }
 
 function cmdInject(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
-  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  const e = matchFlow(entries, slug);
   if (!e) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
 
   const scopeSuffix = e._scope && e._scope !== "global" ? ` (${e._scope})` : "";
@@ -249,7 +275,7 @@ function cmdAdd(slug: string, scope: Scope) {
 
 function cmdEdit(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
-  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  const e = matchFlow(entries, slug);
   if (!e || !e._path) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   const editor = process.env.EDITOR || "vi";
   execSync(`${editor} ${e._path}`, { stdio: "inherit" });
@@ -257,7 +283,7 @@ function cmdEdit(slug: string, scope: Scope) {
 
 function cmdRm(slug: string, scope: Scope) {
   const entries = loadEntriesForScope(scope);
-  const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
+  const e = matchFlow(entries, slug);
   if (!e || !e._path) { console.error(`❌ Flow not found in scope: ${slug}`); process.exit(1); }
   const filePath = e._path;
   try {

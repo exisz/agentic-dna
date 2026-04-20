@@ -7,6 +7,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import yaml from 'js-yaml';
 import { DNA_DATA, parseFrontmatter, resolveAgentWorkspace } from '../lib/common.ts';
+import { buildGraph, getNodesByType, nodeToEntry } from './mesh-cli.ts';
 
 const PROTOCOL_DIR = path.join(DNA_DATA, 'protocols');
 const INJECT_CHAR_LIMIT = 2000;
@@ -18,17 +19,19 @@ interface ProtocolEntry {
 }
 
 function loadProtocols(): ProtocolEntry[] {
-  if (!fs.existsSync(PROTOCOL_DIR)) return [];
-  const entries: ProtocolEntry[] = [];
-  for (const file of fs.readdirSync(PROTOCOL_DIR).sort()) {
-    if (!file.endsWith('.md') || file === 'index.md') continue;
-    const filePath = path.join(PROTOCOL_DIR, file);
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const { meta, body } = parseFrontmatter(content);
-    if (!meta.id) continue;
-    entries.push({ meta, body, filePath });
-  }
-  return entries;
+  const graph = buildGraph();
+  const nodes = getNodesByType(graph, 'protocol');
+  // Sort by id+".md" to match legacy readdirSync().sort() filename order
+  nodes.sort((a, b) => {
+    const ai = (a.fields.id || '').toString() + '.md';
+    const bi = (b.fields.id || '').toString() + '.md';
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+  return nodes.map(n => ({
+    meta: { ...n.fields, id: n.fields.id || n.id },
+    body: n._body ?? '',
+    filePath: n.path,
+  }));
 }
 
 function cmdList() {
@@ -84,7 +87,9 @@ function cmdAgent(agentId: string) {
   const workspace = resolveAgentWorkspace(agentId);
   if (!workspace) { console.error(`❌ Agent '${agentId}' not found in openclaw.json`); process.exit(1); }
 
-  const dnaPath = path.join(workspace, 'dna.yaml');
+  const dnaPath = existsSync(path.join(workspace, 'dna.yml'))
+    ? path.join(workspace, 'dna.yml')
+    : path.join(workspace, 'dna.yaml');
   if (!fs.existsSync(dnaPath)) { console.log(`⚠️  Agent '${agentId}' has no protocol: field in dna.yaml`); return; }
 
   const content = fs.readFileSync(dnaPath, 'utf-8');

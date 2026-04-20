@@ -12,9 +12,23 @@
 import { join } from "node:path";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { DNA_DATA, INJECT_CHAR_LIMIT, loadEntries, resolveAgentWorkspace, loadYaml } from "../lib/common.ts";
+import { DNA_DATA, INJECT_CHAR_LIMIT, resolveAgentWorkspace, loadYaml } from "../lib/common.ts";
+import { buildGraph, getNodesByType, nodeToEntry } from "./mesh-cli.ts";
 
 const PHILOSOPHY_DIR = join(DNA_DATA, "philosophies");
+
+/** Load global philosophy entries via mesh graph. */
+function loadGlobalEntries(): Array<Record<string, any>> {
+  const graph = buildGraph();
+  const nodes = getNodesByType(graph, "philosophy");
+  // Sort by id (slug) for stable output
+  nodes.sort((a, b) => {
+    const ai = (a.fields.id || a.id).toString() + '.md';
+    const bi = (b.fields.id || b.id).toString() + '.md';
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+  return nodes.map(nodeToEntry);
+}
 const HELP = `🧬 DNA Philosophy CLI
 
 Usage:
@@ -28,7 +42,7 @@ Usage:
   dna philosophy --rm <slug>                   Trash an entry`;
 
 function cmdList() {
-  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entries = loadGlobalEntries();
   if (!entries.length) { console.log("No philosophy entries found."); return; }
   console.log(`🧬 Philosophy Database — ${entries.length} entries\n`);
   const col = Math.max(...entries.map(e => (e.id as string).length)) + 2;
@@ -41,14 +55,14 @@ function cmdList() {
 }
 
 function cmdShow(slug: string) {
-  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entries = loadGlobalEntries();
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
   if (!e) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
   console.log(e._body);
 }
 
 function cmdInject(slug: string) {
-  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entries = loadGlobalEntries();
   const e = entries.find(e => (e.id as string).toLowerCase() === slug.toLowerCase());
   if (!e) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
 
@@ -68,7 +82,7 @@ function cmdInject(slug: string) {
 }
 
 function cmdSearch(query: string) {
-  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entries = loadGlobalEntries();
   const q = query.toLowerCase();
   const results = entries.filter(e => {
     const searchable = `${e.title || ""} ${e._body || ""} ${e.tags || ""}`;
@@ -82,7 +96,9 @@ function cmdSearch(query: string) {
 function cmdAgent(agentId: string) {
   const workspace = resolveAgentWorkspace(agentId);
   if (!workspace) { console.error(`❌ Agent not found: ${agentId}`); process.exit(1); }
-  const dnaPath = join(workspace, "dna.yaml");
+  const dnaPath = existsSync(join(workspace, "dna.yml"))
+    ? join(workspace, "dna.yml")
+    : join(workspace, "dna.yaml");
   if (!existsSync(dnaPath)) { console.error(`❌ No dna.yaml found in ${workspace}`); process.exit(1); }
 
   const data = loadYaml(dnaPath);
@@ -93,7 +109,7 @@ function cmdAgent(agentId: string) {
   const phiIds: string[] = inner?.philosophy || [];
   if (!phiIds.length) { console.log(`No philosophy entries in ${dnaPath}`); return; }
 
-  const entries = loadEntries(PHILOSOPHY_DIR);
+  const entries = loadGlobalEntries();
   const entryMap = new Map(entries.map(e => [(e.id as string).toLowerCase(), e]));
   console.log(`🧬 ${agentId} Philosophy — ${phiIds.length} entries\n`);
   for (const pid of phiIds) {

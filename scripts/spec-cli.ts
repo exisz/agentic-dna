@@ -21,8 +21,10 @@ import yaml from "js-yaml";
 import { HOME, WORKSPACE_ROOTS, AGENT_REGISTRY, loadYaml, existsSync, readFileSync, statSync, join, normalize, resolve, isAbsolute } from "../lib/common.ts";
 
 const GLOBAL_GOAL = join(HOME, ".openclaw/GOAL.yaml");
-const GLOBAL_DNA = join(HOME, ".openclaw/workspace/dna.yaml");
-const FLAT_KEYS = new Set(["goal", "boundary", "tools", "philosophy", "deprecated", "spec"]);
+const GLOBAL_DNA = existsSync(join(HOME, ".openclaw/workspace/dna.yml"))
+  ? join(HOME, ".openclaw/workspace/dna.yml")
+  : join(HOME, ".openclaw/workspace/dna.yaml");
+const FLAT_KEYS = new Set(["goal", "boundary", "tools", "philosophy", "deprecated", "spec", "id", "type", "title", "links"]);
 const GBT_KEYS = new Set(["goal", "boundary", "tools", "serves", "not", "how", "deprecated", "spec", "philosophy"]);
 
 const HELP = `📌 DNA Spec CLI — GBTD (Goal / Boundary / Tools / Deprecated)
@@ -85,7 +87,9 @@ function resolveAgentId(workspace: string): string | null {
 }
 
 function loadGoal(workspace: string): Record<string, any> {
-  const dnaPath = join(workspace, "dna.yaml");
+  const dnaPath = existsSync(join(workspace, "dna.yml"))
+    ? join(workspace, "dna.yml")
+    : join(workspace, "dna.yaml");
   const goalPath = join(workspace, "GOAL.yaml");
   let data: any = null;
   if (existsSync(dnaPath)) {
@@ -110,7 +114,7 @@ function loadGoal(workspace: string): Record<string, any> {
 }
 
 function loadFromGithub(repo: string): Record<string, any> {
-  for (const filename of ["dna.yaml", "GOAL.yaml"]) {
+  for (const filename of ["dna.yml", "dna.yaml", "GOAL.yaml"]) {
     try {
       const result = execSync(`gh api repos/${repo}/contents/${filename} --jq .content`, { timeout: 15000, encoding: "utf-8" }).trim();
       if (result) {
