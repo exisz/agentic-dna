@@ -110,6 +110,9 @@ case "$subcmd" in
   hydrate)
     exec "$TSX" "$SCRIPTS/hydrate-cli.$EXT" "$@"
     ;;
+  ui)
+    exec "$TSX" "$SCRIPTS/ui-cli.$EXT" "$@"
+    ;;
   injection)
     exec "$TSX" "$SCRIPTS/injection-cli.$EXT" "$@"
     ;;
@@ -138,6 +141,7 @@ case "$subcmd" in
     echo "  skill         Manual skill operations"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
     echo "  injection     Prompt injection files"
+    echo "  ui            Launch mesh visualization dashboard (http://localhost:4893)"
     echo ""
     echo "Mesh queries (shortcuts — all delegate to dna mesh):"
     echo "  node <id>     Primary node inspector (--links | --refs | --impact | --tour)"

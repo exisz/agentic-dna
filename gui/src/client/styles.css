@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -20%, rgba(122, 90, 248, 0.18), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 100% 100%, rgba(34, 211, 238, 0.12), transparent 60%),
+      #070a13;
+    background-attachment: fixed;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #283153; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4570; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+@layer components {
+  .panel {
+    @apply bg-ink-900/70 backdrop-blur-md border border-ink-700/60 rounded-2xl shadow-xl;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-mono border border-ink-600/60 bg-ink-800/60;
+  }
+  .btn {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium border border-ink-600/60 bg-ink-800/60 hover:bg-ink-700 transition;
+  }
+}
+
+/* React Flow dark overrides */
+.react-flow {
+  background: transparent !important;
+}
+.react-flow__node {
+  font-family: "Inter", system-ui, sans-serif;
+  /* Disable implicit transitions for perf with hundreds of nodes */
+  transition: none !important;
+}
+.react-flow__edge-path {
+  stroke: rgba(148, 163, 184, 0.35);
+  stroke-width: 1.2;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #22d3ee;
+  stroke-width: 2;
+}
+/* Suppress the marching-ants animation even if a stray 'animated' edge slips in. */
+.react-flow__edge.animated path {
+  stroke-dasharray: none !important;
+  animation: none !important;
+}
+.react-flow__controls {
+  @apply !bg-ink-800/80 !border !border-ink-700 !rounded-lg overflow-hidden;
+}
+.react-flow__controls-button {
+  @apply !bg-transparent !border-b !border-ink-700 !text-slate-300 hover:!bg-ink-700;
+}
+.react-flow__minimap {
+  @apply !bg-ink-900/80 !border !border-ink-700 !rounded-lg;
+}
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Prose tweaks for body markdown */
+.body-text {
+  font-family: "JetBrains Mono", Menlo, monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #cbd5e1;
+}
+.body-text code { color: #67e8f9; }

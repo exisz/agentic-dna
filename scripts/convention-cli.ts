@@ -309,7 +309,8 @@ function flagArg(flag: string): string | null {
   return args[idx + 1] || null;
 }
 
-if (args.includes("--list")) cmdList(scope);
+if (args.includes("--list") || args[0] === "list") cmdList(scope);
+else if (args[0] === "search" && args[1]) cmdSearch(args[1], scope);
 else if (args.includes("--inject")) {
   const slug = flagArg("--inject");
   if (!slug) { console.error("❌ --inject requires a slug"); process.exit(1); }

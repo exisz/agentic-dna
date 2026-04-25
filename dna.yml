@@ -1,5 +1,5 @@
-id: dna://repo/exisz-agentic-dna
-type: repo
+id: dna://maintained-oss/exisz-agentic-dna
+type: maintained-oss
 title: agentic-dna (the source of truth)
 package_name: agentic-dna
 package_version: "0.6.0"

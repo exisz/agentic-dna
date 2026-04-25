@@ -2,7 +2,7 @@
 /**
  * dna mesh - graph-based mesh CLI for the DNA system.
  *
- * Scans dna.yml / dna.yaml / *.dna.md / *.dna.yml files across known roots,
+ * Scans dna.yml / dna.yaml / *.dna / *.dna.md / *.dna.yml files across known roots,
  * builds in-memory graph (no DB), provides query subcommands.
  *
  * Subcommands:
@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { join, basename, dirname, relative } from "node:path";
 import yaml from "js-yaml";
 import { HOME, DNA_DATA, parseFrontmatter } from "../lib/common.js";
+import { loadConfig, getTypeDef } from "../lib/config.js";
 
 // --- Config ---
 
@@ -273,12 +274,12 @@ async function cmdPromoteRemote(args: string[]) {
     process.exit(1);
   }
 
-  const shadowDir = join(DNA_DATA, "nodes", "repo");
+  const shadowDir = join(DNA_DATA, "nodes", "maintained-oss");
   const shadowFile = join(shadowDir, `${parsed.owner}-${parsed.repo}.dna.yml`);
   mkdirSync(shadowDir, { recursive: true });
 
   const shadowFields: Record<string, any> = {
-    id: `dna://repo/${parsed.owner}-${parsed.repo}`,
+    id: `dna://maintained-oss/${parsed.owner}-${parsed.repo}`,
     shadow: true,
     shadow_origin: `https://github.com/${parsed.owner}/${parsed.repo}`,
     shadow_fetched_at: new Date().toISOString(),
@@ -302,7 +303,7 @@ const SKIP_DIRS = new Set([
 
 const ID_REGEX = /dna:\/\/[a-z][a-z0-9-]*\/[a-zA-Z0-9_.-]+/g;
 const CACHE_PATH = join(DNA_DATA, ".mesh-cache.json");
-const SHADOW_CACHE_DIR = join(DNA_DATA, ".shadow-cache");
+// Shadow cache removed (NEBULA-82) — upstream content lives in the shadow node file itself
 const MAX_DEPTH = 8;  // safety: don't recurse forever
 
 // --- Verb model ---
@@ -424,7 +425,7 @@ interface MeshGraph {
     // New: shadow purity lint
     shadowContaminations: Array<{ id: string; path: string; field: string }>;  // forbidden local field
     shadowMissingOrigin: Array<{ id: string; path: string }>;                  // shadow: true but no shadow_origin
-    shadowNoCache: Array<{ id: string; path: string }>;                        // shadow with origin but no cache
+
   };
 }
 
@@ -456,6 +457,9 @@ function walkForCandidates(root: string, depth = 0): string[] {
         out.push(full);
       } else if (name.endsWith(".dna.yml")) {
         // Pure YAML shadow nodes (migrated from .dna.md)
+        out.push(full);
+      } else if (name.endsWith(".dna")) {
+        // New unified extension: pure YAML or YAML frontmatter + markdown body
         out.push(full);
       } else if (name.endsWith(".md") && name !== "index.md" && name !== "README.md") {
         // All .md files are candidates; parseFile filters by frontmatter `type:` presence
@@ -506,9 +510,12 @@ function parseFile(path: string, lint: MeshGraph["lint"]): MeshNode | null {
   let raw: string;
   try { raw = readFileSync(path, "utf-8"); } catch { return null; }
   const isMd = path.endsWith(".md");
+  // .dna files: pure YAML OR frontmatter+markdown (auto-detect by leading `---`)
+  const isDna = path.endsWith(".dna");
+  const isDnaFrontmatter = isDna && raw.startsWith("---");
   let fields: Record<string, any>;
   let _body: string | undefined;
-  if (isMd) {
+  if (isMd || isDnaFrontmatter) {
     const { meta, body } = parseFrontmatter(raw);
     fields = meta || {};
     _body = body || undefined;
@@ -569,7 +576,7 @@ function parseFile(path: string, lint: MeshGraph["lint"]): MeshNode | null {
 
   if (!id || typeof id !== "string" || !id.startsWith("dna://")) {
     // Has dna file but no mesh id - flag near-miss for canonical DNA file types
-    if (path.endsWith("dna.yaml") || path.endsWith("dna.yml") || path.endsWith(".dna.md") || path.endsWith(".dna.yml")) {
+    if (path.endsWith("dna.yaml") || path.endsWith("dna.yml") || path.endsWith(".dna.md") || path.endsWith(".dna.yml") || path.endsWith(".dna")) {
       lint.missingFields.push({ path, missing: ["id"] });
     }
     return null;
@@ -631,31 +638,10 @@ function parseFile(path: string, lint: MeshGraph["lint"]): MeshNode | null {
     }
   }
 
-  // --- Shadow cache: if this is a pure-pointer shadow, load upstream from .shadow-cache/ ---
+  // --- Shadow: upstream fields are stored directly in the node file (no central cache) ---
   if (fields.shadow === true && typeof fields.shadow_origin === "string" && fields.shadow_origin) {
-    const originUrl: string = fields.shadow_origin;
-    const cacheKey = createHash("sha256").update(originUrl).digest("hex");
-    const cacheFile = join(SHADOW_CACHE_DIR, `${cacheKey}.yml`);
-    if (existsSync(cacheFile)) {
-      try {
-        const cachedContent = readFileSync(cacheFile, "utf-8");
-        const cachedFields = (yaml.load(cachedContent) as Record<string, any>) || {};
-        // Merge upstream cached fields into local fields (local pointer fields win)
-        const LOCAL_PRIORITY = new Set(["shadow", "shadow_origin", "shadow_fetched_at", "shadow_etag", "shadow_sha", "id"]);
-        for (const [k, v] of Object.entries(cachedFields)) {
-          if (!LOCAL_PRIORITY.has(k)) {
-            fields[k] = v;
-          }
-        }
-        // Update type + title from upstream if not already set
-        if (!type && fields.type) type = fields.type;
-        if (!type) type = cachedFields.type || type;
-      } catch {
-        // cache unreadable - continue with minimal info
-      }
-    } else {
-      fields.pending_sync = true;
-    }
+    // Update type from upstream fields already in the node file
+    if (!type && fields.type) type = fields.type;
   }
 
   // --- Title fallback chain ---
@@ -768,8 +754,26 @@ function resolveRef(type: string, slug: string): string | null {
   return `dna://${t}/${slug}`;
 }
 
-/** Walk a workspace dir, collect citation edges, auto-create cron nodes. */
+/** Walk a workspace dir, collect citation edges, auto-create cron nodes.
+ *
+ * NOTE (2026-04): Auto-discovery of workspace markdown files (CRON_ENTRYPOINT*.md,
+ * POD*.md, memory/*.md, AGENTS.md, SOUL.md, IDENTITY.md, USER.md, TOOLS.md, MEMORY.md,
+ * HEARTBEAT.md, pods/*.md) is DISABLED. These files have no .dna extension and no
+ * frontmatter, so they shouldn't be auto-recognized as DNA shards. To bring a pod
+ * into the mesh, create an explicit .dna file (e.g. CRON_ENTRYPOINT.dna).
+ *
+ * The scanCitations function now does nothing. Citation edges are only emitted from
+ * proper .dna / .dna.yml / .dna.yaml / .dna.md files via the regular candidate scan.
+ */
 function scanCitations(
+  _graph: MeshGraph,
+  _addEdge: (from: string, edge: MeshEdge) => void,
+) {
+  return;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _scanCitations_DISABLED(
   graph: MeshGraph,
   addEdge: (from: string, edge: MeshEdge) => void,
 ) {
@@ -926,7 +930,7 @@ export function buildGraph(): MeshGraph {
       extensionHintMismatches: [],
       shadowContaminations: [],
       shadowMissingOrigin: [],
-      shadowNoCache: [],
+
     },
   };
 
@@ -938,6 +942,16 @@ export function buildGraph(): MeshGraph {
   }
   // Dedupe paths (in case of overlapping roots)
   const uniquePaths = [...new Set(candidates)];
+  // Priority sort: when both `foo.dna` and `foo.dna.yml` exist for the same id,
+  // the new `.dna` format should win. Since graph.nodes uses last-wins below,
+  // process `.dna` files LAST.
+  const extPriority = (p: string): number => {
+    if (p.endsWith(".dna")) return 2;       // highest priority — processed last
+    if (p.endsWith(".dna.yml")) return 1;
+    if (p.endsWith(".dna.yaml")) return 1;
+    return 0;
+  };
+  uniquePaths.sort((a, b) => extPriority(a) - extPriority(b));
 
   // Track duplicate ids
   const idsSeen = new Map<string, string[]>();
@@ -1014,7 +1028,9 @@ export function buildGraph(): MeshGraph {
       },
       nodes: [...graph.nodes.values()].map(n => ({
         id: n.id, type: n.type, title: n.title, path: n.path,
-        outbound: n.outbound.map(e => e.target),
+        status: typeof n.fields?.status === "string" ? n.fields.status : undefined,
+        managed_by: typeof n.fields?.managed_by === "string" ? n.fields.managed_by : undefined,
+        outbound: n.outbound.map(e => ({ target: e.target, kind: e.kind })),
       })),
     };
     writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2));
@@ -1178,10 +1194,14 @@ function cmdLs(args: string[]) {
   const g = buildGraph();
   let typeFilter: string | null = null;
   let prefixFilter: string | null = null;
+  let managedByFilter: string | null = null;
   const positionals: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--type" || args[i] === "-t") {
       typeFilter = args[i + 1];
+      i++;
+    } else if (args[i] === "--managed-by") {
+      managedByFilter = args[i + 1];
       i++;
     } else if (!args[i].startsWith("-")) {
       positionals.push(args[i]);
@@ -1199,6 +1219,14 @@ function cmdLs(args: string[]) {
     }
   }
 
+  // Normalize managed-by filter into expected dna://agent/<slug> form
+  let managedByExpected: string | null = null;
+  if (managedByFilter) {
+    managedByExpected = managedByFilter.startsWith("dna://")
+      ? managedByFilter
+      : `dna://agent/${managedByFilter}`;
+  }
+
   const nodes = [...g.nodes.values()]
     .filter(n => {
       if (typeFilter && n.type !== typeFilter) return false;
@@ -1206,11 +1234,16 @@ function cmdLs(args: string[]) {
         const p = prefixFilter.toLowerCase();
         if (p.startsWith("dna://")) {
           // match by full id prefix
-          return n.id.toLowerCase().startsWith(p);
+          if (!n.id.toLowerCase().startsWith(p)) return false;
         } else {
           // match by type prefix
-          return n.type.toLowerCase().startsWith(p);
+          if (!n.type.toLowerCase().startsWith(p)) return false;
         }
+      }
+      if (managedByExpected) {
+        const mb = n.fields.managed_by;
+        const list = Array.isArray(mb) ? mb : (mb ? [mb] : []);
+        if (!list.some((v: any) => String(v).toLowerCase() === managedByExpected!.toLowerCase())) return false;
       }
       return true;
     })
@@ -1218,7 +1251,11 @@ function cmdLs(args: string[]) {
   for (const n of nodes) {
     console.log(`  ${n.id.padEnd(45)} ${n.title || ""}`);
   }
-  const filterDesc = typeFilter ? ` (type=${typeFilter})` : prefixFilter ? ` (prefix=${prefixFilter})` : "";
+  const filterParts: string[] = [];
+  if (typeFilter) filterParts.push(`type=${typeFilter}`);
+  if (prefixFilter) filterParts.push(`prefix=${prefixFilter}`);
+  if (managedByExpected) filterParts.push(`managed_by=${managedByExpected}`);
+  const filterDesc = filterParts.length ? ` (${filterParts.join(", ")})` : "";
   console.log(`\n${nodes.length} node${nodes.length === 1 ? "" : "s"}${filterDesc}`);
 }
 
@@ -1338,8 +1375,17 @@ async function cmdShow(args: string[]) {
   // Generic other fields
   renderOtherFields(n.fields);
 
+  // Body content (markdown body for .md or .dna frontmatter files)
+  if (n._body && n._body.trim()) {
+    console.log("");
+    console.log("   ── Content ──");
+    for (const line of n._body.split("\n")) {
+      console.log(`   ${line}`);
+    }
+    console.log("");
+  }
+
   console.log(`   Outbound (${n.outbound.length}):`);
-  // Group by kind (verb name)
   const kindGroups = new Map<string, MeshEdge[]>();
   for (const edge of n.outbound) {
     if (!kindGroups.has(edge.kind)) kindGroups.set(edge.kind, []);
@@ -1568,10 +1614,7 @@ function cmdLint(args: string[]) {
         }
       }
     } catch { /* skip */ }
-    // No cache
-    if (node.fields.pending_sync === true) {
-      g.lint.shadowNoCache.push({ id: node.id, path: node.path });
-    }
+
     // Stale cache (7 days)
     if (node.fields.shadow_fetched_at && typeof node.fields.shadow_fetched_at === "string" && node.fields.shadow_fetched_at.trim()) {
       const fetched = new Date(node.fields.shadow_fetched_at).getTime();
@@ -1628,11 +1671,11 @@ function cmdLint(args: string[]) {
   // These relationships REQUIRE back-links in both directions.
   const STRUCTURAL_PAIRS: Array<[string, string]> = [
     ["agent", "realm"],
-    ["agent", "repo"],
+    ["agent", "maintained-oss"],
     ["agent", "tool"],
     ["agent", "site"],
     ["host", "middleware"],
-    ["site", "repo"],
+    ["site", "maintained-oss"],
     ["realm", "middleware"],
     ["flow", "agent"],
   ];
@@ -1698,7 +1741,7 @@ function cmdLint(args: string[]) {
   // --- Output ---
   const { deadLinks, duplicateIds, missingFields, nonCanonicalExt, cycles,
           staleShadows, idPathMismatches, typeDirMismatches, missingBackLinks, missingTitles,
-          shadowContaminations, shadowMissingOrigin, shadowNoCache } = g.lint;
+          shadowContaminations, shadowMissingOrigin } = g.lint;
   let hasErrors = false;
 
   if (deadLinks.length) {
@@ -1755,12 +1798,7 @@ function cmdLint(args: string[]) {
       console.log(`   ${s.id}  field=${s.field}  ${relPath(s.path)}`);
     }
   }
-  if (shadowNoCache.length) {
-    console.log(`\ni️  Shadows with no cached content - run \`dna mesh sync-shadows\` (${shadowNoCache.length}):`);
-    for (const s of shadowNoCache) {
-      console.log(`   ${s.id}  ${relPath(s.path)}`);
-    }
-  }
+
   if (idPathMismatches.length) {
     console.log(`\n📍  ID-vs-path mismatches (${idPathMismatches.length}):`);
     for (const m of idPathMismatches) {
@@ -1888,11 +1926,11 @@ async function cmdHeal(args: string[]) {
   // Reuse same structural pair logic from lint
   const STRUCTURAL_PAIRS: Array<[string, string]> = [
     ["agent", "realm"],
-    ["agent", "repo"],
+    ["agent", "maintained-oss"],
     ["agent", "tool"],
     ["agent", "site"],
     ["host", "middleware"],
-    ["site", "repo"],
+    ["site", "maintained-oss"],
     ["realm", "middleware"],
     ["flow", "agent"],
   ];
@@ -2176,22 +2214,11 @@ async function cmdSyncShadows(args: string[]) {
     // existing file lacks an id field for any reason.
     if (!existingMeta.id) existingMeta.id = shadow.id;
 
-    // Pure-pointer contract: compute sha256 for cache key, write upstream to shadow-cache/
     const sha256 = createHash("sha256").update(upstreamContent).digest("hex");
-    const cacheKey = createHash("sha256").update(originUrl).digest("hex");
-    const cacheFile = join(SHADOW_CACHE_DIR, `${cacheKey}.yml`);
 
-    if (applyMode) {
-      try {
-        mkdirSync(SHADOW_CACHE_DIR, { recursive: true });
-        writeFileSync(cacheFile, upstreamContent, "utf-8");
-        console.log(`   🗄️  Cache written → .shadow-cache/${cacheKey.slice(0, 8)}.yml`);
-      } catch (err: any) {
-        console.log(`   ⚠️  Could not write cache: ${err.message}`);
-      }
-    }
-
-    // Local file gets ONLY cache metadata (pure-pointer contract)
+    // Merge upstream fields into the shadow node file directly (no central cache)
+    const parsedUpstream = (yaml.load(upstreamContent) as Record<string, any>) || {};
+    const POINTER_FIELDS = new Set(["shadow", "shadow_origin", "shadow_fetched_at", "shadow_etag", "shadow_sha", "id", "pending_upstream"]);
     const newMeta: Record<string, any> = {
       id: existingMeta.id,
       shadow: true,
@@ -2201,6 +2228,12 @@ async function cmdSyncShadows(args: string[]) {
     };
     if (existingMeta.shadow_etag) newMeta.shadow_etag = existingMeta.shadow_etag;
     if (existingMeta.pending_upstream) newMeta.pending_upstream = existingMeta.pending_upstream;
+    // Merge upstream content fields into the node file
+    for (const [k, v] of Object.entries(parsedUpstream)) {
+      if (!POINTER_FIELDS.has(k)) {
+        newMeta[k] = v;
+      }
+    }
 
     const pointerBody = `Pointer to ${originUrl}\n`;
     const newFm = yaml.dump(newMeta, { lineWidth: 120, quotingType: '"', forceQuotes: false }).trimEnd();
@@ -2495,6 +2528,10 @@ async function cmdTour(args: string[]) {
     for (const n of g.nodes.values()) {
       types.set(n.type, (types.get(n.type) || 0) + 1);
     }
+    // Split projects into active vs shadow stubs
+    const projectNodes = [...g.nodes.values()].filter(n => n.type === "project");
+    const activeProjects = projectNodes.filter(n => n.fields.shadow !== true).length;
+    const shadowProjects = projectNodes.filter(n => n.fields.shadow === true).length;
     const agents = [...g.nodes.values()].filter(n => n.type === "agent");
     const realms = [...g.nodes.values()].filter(n => n.type === "realm");
 
@@ -2502,9 +2539,16 @@ async function cmdTour(args: string[]) {
     console.log(`   Total nodes: ${g.nodes.size}`);
     const allEdgeKinds = new Set([...g.nodes.values()].flatMap(n => n.outbound.map(e => e.kind)));
     console.log(`   Total edge types: ${allEdgeKinds.size}\n`);
+    const cfg = loadConfig(process.cwd());
     console.log(`📊  Node counts by type:`);
     for (const [t, n] of [...types.entries()].sort((a, b) => b[1] - a[1])) {
-      console.log(`   ${t.padEnd(18)} ${n}`);
+      const td = getTypeDef(cfg, t);
+      const label = `${td.icon} ${td.label}`;
+      if (t === "project" && (activeProjects + shadowProjects) > 0) {
+        console.log(`   ${label.padEnd(22)} ${n}  (${activeProjects} active + ${shadowProjects} shadow stub${shadowProjects === 1 ? "" : "s"})`);
+      } else {
+        console.log(`   ${label.padEnd(22)} ${n}`);
+      }
     }
     console.log(`\n🤖  Agents (${agents.length}):`);
     for (const a of agents.sort((x, y) => x.id.localeCompare(y.id))) {
@@ -2821,14 +2865,14 @@ function cmdDiscoverProjects(args: string[]) {
 
 /**
  * cmdLinkProjectsToRepos — for each type:project stub node that has status:stub and no built_from,
- * check if a repo shadow exists in .dna/nodes/repo/<owner>-<basename>.dna.yml.
+ * check if a repo shadow exists in .dna/nodes/maintained-oss/<owner>-<basename>.dna.yml.
  * If found, add built_from to the project and built_into to the repo shadow.
  */
 async function cmdLinkProjectsToRepos(args: string[]) {
   const apply = args.includes("--apply");
   const nodesRoot = join(HOME, ".openclaw/.dna/nodes");
   const workspacesRoot = join(HOME, ".openclaw/workspaces");
-  const repoNodesDir = join(nodesRoot, "repo");
+  const repoNodesDir = join(nodesRoot, "maintained-oss");
 
   interface LinkCandidate {
     projectFile: string;
@@ -2871,13 +2915,13 @@ async function cmdLinkProjectsToRepos(args: string[]) {
         const exact = repoFiles.find(f => f === `exisz-${basename}.dna.yml`);
         if (exact) {
           repoFile = join(repoNodesDir, exact);
-          repoId = `dna://repo/exisz-${basename}`;
+          repoId = `dna://maintained-oss/exisz-${basename}`;
         } else {
           // try any <owner>-<name>
           const fuzzy = repoFiles.find(f => f.endsWith(`-${basename}.dna.yml`));
           if (fuzzy) {
             repoFile = join(repoNodesDir, fuzzy);
-            repoId = `dna://repo/${fuzzy.replace(".dna.yml", "")}`;
+            repoId = `dna://maintained-oss/${fuzzy.replace(".dna.yml", "")}`;
           }
         }
       }

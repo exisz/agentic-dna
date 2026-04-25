@@ -19,6 +19,7 @@
 import { execSync } from "node:child_process";
 import yaml from "js-yaml";
 import { HOME, WORKSPACE_ROOTS, AGENT_REGISTRY, loadYaml, existsSync, readFileSync, statSync, join, normalize, resolve, isAbsolute } from "../lib/common.ts";
+import { buildGraph } from "./mesh-cli.ts";
 
 const GLOBAL_GOAL = join(HOME, ".openclaw/GOAL.yaml");
 const GLOBAL_DNA = existsSync(join(HOME, ".openclaw/workspace/dna.yml"))
@@ -86,10 +87,32 @@ function resolveAgentId(workspace: string): string | null {
   return null;
 }
 
+function findWorkspaceDnaFile(workspace: string): string | null {
+  // New convention: {agentname}.dna in workspace root
+  const wsName = workspace.split("/").filter(Boolean).pop() || "";
+  const candidates = [
+    join(workspace, `${wsName}.dna`),
+    join(workspace, "dna.yml"),
+    join(workspace, "dna.yaml"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  // Fallback: any *.dna file in workspace root (excluding the .dna directory)
+  try {
+    const { readdirSync } = require("fs");
+    const entries = readdirSync(workspace, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.isFile && e.isFile() && e.name.endsWith(".dna")) {
+        return join(workspace, e.name);
+      }
+    }
+  } catch {}
+  return null;
+}
+
 function loadGoal(workspace: string): Record<string, any> {
-  const dnaPath = existsSync(join(workspace, "dna.yml"))
-    ? join(workspace, "dna.yml")
-    : join(workspace, "dna.yaml");
+  const dnaPath = findWorkspaceDnaFile(workspace) || join(workspace, "dna.yml");
   const goalPath = join(workspace, "GOAL.yaml");
   let data: any = null;
   if (existsSync(dnaPath)) {
@@ -468,4 +491,82 @@ if (remaining.length) {
 } else {
   displayFull(data);
   if (mergedDeprecated.length) { console.log(); displayDeprecated(mergedDeprecated); }
+}
+
+// ── Organization info via mesh (NEBULA-76) ──
+// Show what this agent manages + who it reports to.
+// Fallback: when AGENT_REGISTRY is unset, use the workspace basename as the agent slug.
+const orgAgentId = agentId || (workspaceName.includes("/") || workspaceName.includes(".")
+  ? null
+  : workspaceName);
+if (orgAgentId) {
+  try {
+    const g = buildGraph();
+    const agentDnaId = `dna://agent/${orgAgentId}`;
+    const node = g.nodes.get(agentDnaId);
+    // If node doesn't exist in mesh, agent isn't registered there — silently skip.
+    if (!node && !process.env.DNA_DEBUG) {
+      // no-op
+    }
+
+    // Compute Manages: any node whose managed_by points at this agent.
+    const managedNodes: Array<{ id: string; type: string; title?: string; shadow: boolean }> = [];
+    for (const n of g.nodes.values()) {
+      const mb = n.fields?.managed_by;
+      const list = Array.isArray(mb) ? mb : (mb ? [mb] : []);
+      if (list.some((v: any) => String(v).toLowerCase() === agentDnaId.toLowerCase())) {
+        managedNodes.push({ id: n.id, type: n.type, title: n.title, shadow: n.fields?.shadow === true });
+      }
+    }
+
+    // Compute Reports to: outbound governed_by edges, or links pointing at other agents.
+    const reportsTo: Array<{ id: string; title?: string; via: string }> = [];
+    if (node) {
+      const seen = new Set<string>();
+      for (const e of node.outbound) {
+        if (e.kind === "governed_by" || (e.kind === "link" && e.target.startsWith("dna://agent/"))) {
+          if (seen.has(e.target)) continue;
+          seen.add(e.target);
+          const t = g.nodes.get(e.target);
+          reportsTo.push({ id: e.target, title: t?.title, via: e.kind });
+        }
+      }
+    }
+
+    if (managedNodes.length || reportsTo.length) {
+      console.log(`\n🏛️   Organization (via mesh)`);
+      if (managedNodes.length) {
+        // Group by type
+        const byType = new Map<string, typeof managedNodes>();
+        for (const m of managedNodes) {
+          if (!byType.has(m.type)) byType.set(m.type, []);
+          byType.get(m.type)!.push(m);
+        }
+        const totalActive = managedNodes.filter(m => !m.shadow).length;
+        const totalShadow = managedNodes.length - totalActive;
+        const summary = totalShadow > 0 ? ` (${totalActive} active + ${totalShadow} shadow)` : "";
+        console.log(`   Manages: ${managedNodes.length}${summary}`);
+        for (const [type, items] of [...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+          items.sort((a, b) => a.id.localeCompare(b.id));
+          console.log(`     ${type} (${items.length}):`);
+          for (const m of items) {
+            const slug = m.id.split("/").pop() || m.id;
+            const tag = m.shadow ? " [shadow]" : "";
+            console.log(`       • ${slug.padEnd(28)} ${m.title || ""}${tag}`);
+          }
+        }
+      } else {
+        console.log(`   Manages: (none)`);
+      }
+      if (reportsTo.length) {
+        console.log(`   Reports to:`);
+        for (const r of reportsTo) {
+          console.log(`     • ${r.id.padEnd(35)} ${r.title || ""}  [${r.via}]`);
+        }
+      }
+    }
+  } catch (err: any) {
+    // Mesh graph build failure should not break spec output
+    if (process.env.DNA_DEBUG) console.error(`(mesh org info skipped: ${err.message})`);
+  }
 }

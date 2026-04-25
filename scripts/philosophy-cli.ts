@@ -155,10 +155,10 @@ function cmdRm(slug: string) {
 const args = process.argv.slice(2);
 if (!args.length || args[0] === "--help" || args[0] === "-h") { console.log(HELP); process.exit(0); }
 
-if (args[0] === "--list") cmdList();
+if (args[0] === "--list" || args[0] === "list") cmdList();
+else if ((args[0] === "--search" || args[0] === "search") && args[1]) cmdSearch(args[1]);
 else if (args[0] === "--agent" && args[1]) cmdAgent(args[1]);
 else if (args[0] === "--inject" && args[1]) cmdInject(args[1]);
-else if (args[0] === "--search" && args[1]) cmdSearch(args[1]);
 else if (args[0] === "--add" && args[1]) cmdAdd(args[1]);
 else if (args[0] === "--edit" && args[1]) cmdEdit(args[1]);
 else if (args[0] === "--rm" && args[1]) cmdRm(args[1]);
