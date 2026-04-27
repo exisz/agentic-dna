@@ -40,7 +40,7 @@ function loadInjections(): Injection[] {
   const dir = join(DNA_DATA, "injections");
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
+    .filter((f) => f.endsWith(".md") || f.endsWith(".dna"))
     .sort()
     .map((f) => {
       const raw = readFileSync(join(dir, f), "utf-8");

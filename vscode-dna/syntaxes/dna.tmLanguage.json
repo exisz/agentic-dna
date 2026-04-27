@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/tc39-proposal-json-schema/HEAD/schema.json",
+  "scopeName": "source.dna",
+  "name": "DNA",
+  "patterns": [
+    { "include": "#frontmatter" },
+    { "include": "#dna-uri" },
+    { "include": "#yaml-fallback" }
+  ],
+  "repository": {
+    "frontmatter": {
+      "begin": "\\A(---)[\\t ]*$\\n?",
+      "end": "\\z",
+      "beginCaptures": { "1": { "name": "punctuation.definition.frontmatter.begin.dna" } },
+      "name": "meta.dna-document",
+      "patterns": [
+        {
+          "begin": "\\G",
+          "end": "^(---)[\\t ]*$\\n?",
+          "endCaptures": { "1": { "name": "punctuation.definition.frontmatter.end.dna" } },
+          "name": "meta.frontmatter.dna",
+          "contentName": "meta.embedded.block.yaml",
+          "patterns": [
+            { "include": "#dna-uri" },
+            { "include": "source.yaml" }
+          ]
+        },
+        {
+          "begin": "(?!\\G)",
+          "end": "\\z",
+          "name": "meta.embedded.block.markdown",
+          "patterns": [
+            { "include": "#dna-uri" },
+            { "include": "text.html.markdown" }
+          ]
+        }
+      ]
+    },
+    "dna-uri": {
+      "match": "dna://[a-z][a-z0-9-]*/[a-z][a-z0-9-]*",
+      "name": "markup.underline.link.dna-uri"
+    },
+    "yaml-fallback": {
+      "patterns": [
+        { "include": "#dna-uri" },
+        { "include": "source.yaml" }
+      ]
+    }
+  }
+}

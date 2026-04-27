@@ -264,8 +264,9 @@ function targetDir(scope: Scope): { dir: string; scopeLabel: string } {
 function cmdAdd(slug: string, scope: Scope) {
   const { dir, scopeLabel } = targetDir(scope);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const filePath = join(dir, `${slug}.md`);
-  if (existsSync(filePath)) { console.error(`❌ Flow already exists: ${slug}`); process.exit(1); }
+  const filePath = join(dir, `${slug}.dna`);
+  const legacyPath = join(dir, `${slug}.md`);
+  if (existsSync(filePath) || existsSync(legacyPath)) { console.error(`❌ Flow already exists: ${slug}`); process.exit(1); }
   const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\nderives-from: ""\ntags: []\nsummary: ""\n---\n\n# ${slug}\n\n## Rule\n\n(describe the rule here)\n`;
   writeFileSync(filePath, template, "utf-8");
   const editor = process.env.EDITOR || "vi";

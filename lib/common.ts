@@ -42,7 +42,7 @@ export function loadEntries(dir: string): Array<Record<string, any>> {
   if (!existsSync(dir)) return [];
   const entries: Array<Record<string, any>> = [];
   for (const file of readdirSync(dir).sort()) {
-    if (!file.endsWith(".md") || file === "index.md") continue;
+    if (!(file.endsWith(".md") || file.endsWith(".dna")) || file === "index.md" || file === "index.dna") continue;
     // Skip directories (e.g. case-studies/)
     const fullPath = join(dir, file);
     if (statSync(fullPath).isDirectory()) continue;

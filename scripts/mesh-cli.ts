@@ -425,7 +425,8 @@ interface MeshGraph {
     // New: shadow purity lint
     shadowContaminations: Array<{ id: string; path: string; field: string }>;  // forbidden local field
     shadowMissingOrigin: Array<{ id: string; path: string }>;                  // shadow: true but no shadow_origin
-
+    // New: cross-agent dependency awareness
+    crossAgentDeps: Array<{ kind: 'inject' | 'link'; file: string; slug?: string; sourceAgent: string; targetAgent: string; sourceId?: string; targetId?: string }>;
   };
 }
 
@@ -930,7 +931,7 @@ export function buildGraph(): MeshGraph {
       extensionHintMismatches: [],
       shadowContaminations: [],
       shadowMissingOrigin: [],
-
+      crossAgentDeps: [],
     },
   };
 
@@ -1515,6 +1516,121 @@ function cmdImpact(args: string[]) {
   console.log(`\n  Total affected: ${visited.size - 1}`);
 }
 
+/** Scan for cross-agent dependencies:
+ * 1. Inject patterns in .md files that resolve to another agent's local DNA
+ * 2. Mesh link edges where source and target belong to different agents
+ */
+function scanCrossAgentDeps(graph: MeshGraph): void {
+  const workspacesDir = join(HOME, ".openclaw/workspaces");
+  const globalDnaDir = join(HOME, ".openclaw/.dna");
+
+  // Helper: extract agent name from a file path under workspaces/<agent>/
+  function agentFromPath(p: string): string | null {
+    if (!p.startsWith(workspacesDir + "/")) return null;
+    const rel = p.slice(workspacesDir.length + 1);
+    const slash = rel.indexOf("/");
+    return slash === -1 ? rel : rel.slice(0, slash);
+  }
+
+  // ---- Part 1: inject references ----
+  // Find all .md files under ~/.openclaw/workspaces/*/
+  function walkMd(dir: string, out: string[] = []): string[] {
+    if (!existsSync(dir)) return out;
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return out; }
+    for (const name of entries) {
+      if (name.startsWith(".")) continue;
+      const full = join(dir, name);
+      let st;
+      try { st = statSync(full); } catch { continue; }
+      if (st.isDirectory()) walkMd(full, out);
+      else if (st.isFile() && name.endsWith(".md")) out.push(full);
+    }
+    return out;
+  }
+
+  const mdFiles = walkMd(workspacesDir);
+  // Pattern: «dna (convention|philosophy|protocol|flow) --inject <slug>»  or  {{dna ... --inject <slug>}}
+  // Also handles colon variant: «dna:convention --inject <slug>»
+  const injectRe = /[«{]{1,2}dna[:\s]+(?:convention|philosophy|protocol|flow)\s+--inject\s+([\w-]+)[»}]{1,2}/g;
+
+  for (const mdFile of mdFiles) {
+    const sourceAgent = agentFromPath(mdFile);
+    if (!sourceAgent) continue;
+    let content: string;
+    try { content = readFileSync(mdFile, "utf-8"); } catch { continue; }
+
+    let m: RegExpExecArray | null;
+    injectRe.lastIndex = 0;
+    while ((m = injectRe.exec(content)) !== null) {
+      const slug = m[1];
+      // Check if this slug lives in another agent's local .dna (not global)
+      // Walk workspaces to find if any agent other than sourceAgent has this slug
+      let ownerAgent: string | null = null;
+      if (existsSync(workspacesDir)) {
+        let agents: string[];
+        try { agents = readdirSync(workspacesDir); } catch { agents = []; }
+        for (const ag of agents) {
+          if (ag === sourceAgent) continue;
+          const agDna = join(workspacesDir, ag, ".dna");
+          if (!existsSync(agDna)) continue;
+          // Check subdirs: conventions, philosophies, protocols, flows (+ root)
+          const dirsToCheck = [agDna, ...[
+            "conventions", "philosophies", "protocols", "flows",
+          ].map(d => join(agDna, d))];
+          for (const d of dirsToCheck) {
+            if (!existsSync(d)) continue;
+            // Look for <slug>.md, <slug>.dna, <slug>.dna.yml, <slug>.yml
+            for (const ext of [".md", ".dna", ".dna.yml", ".yml", ".yaml"]) {
+              if (existsSync(join(d, slug + ext))) {
+                ownerAgent = ag;
+                break;
+              }
+            }
+            if (ownerAgent) break;
+          }
+          if (ownerAgent) break;
+        }
+      }
+      if (!ownerAgent) {
+        // Also check if it lives in global .dna — if so, skip (not cross-agent)
+        // If not found anywhere, also skip (can't determine ownership)
+        continue;
+      }
+      graph.lint.crossAgentDeps.push({
+        kind: "inject",
+        file: mdFile,
+        slug,
+        sourceAgent,
+        targetAgent: ownerAgent,
+      });
+    }
+  }
+
+  // ---- Part 2: mesh link cross-agent edges ----
+  for (const node of graph.nodes.values()) {
+    const srcAgent = agentFromPath(node.path);
+    if (!srcAgent) continue;  // not a workspace node
+    for (const edge of node.outbound) {
+      const targetNode = graph.nodes.get(edge.target);
+      if (!targetNode) continue;
+      // Skip global DNA nodes — neutral
+      if (targetNode.path.startsWith(globalDnaDir + "/")) continue;
+      const tgtAgent = agentFromPath(targetNode.path);
+      if (!tgtAgent) continue;
+      if (tgtAgent === srcAgent) continue;
+      graph.lint.crossAgentDeps.push({
+        kind: "link",
+        file: node.path,
+        sourceId: node.id,
+        targetId: edge.target,
+        sourceAgent: srcAgent,
+        targetAgent: tgtAgent,
+      });
+    }
+  }
+}
+
 /** Tarjan SCC - returns all SCCs with size > 1, plus self-loops. */
 function detectCycles(g: MeshGraph): Array<string[]> {
   const ids = [...g.nodes.keys()];
@@ -1738,10 +1854,13 @@ function cmdLint(args: string[]) {
     if (!node.title) g.lint.missingTitles.push(node.id);
   }
 
+  // --- Check 7: Cross-agent dependencies (informational only) ---
+  scanCrossAgentDeps(g);
+
   // --- Output ---
   const { deadLinks, duplicateIds, missingFields, nonCanonicalExt, cycles,
           staleShadows, idPathMismatches, typeDirMismatches, missingBackLinks, missingTitles,
-          shadowContaminations, shadowMissingOrigin } = g.lint;
+          shadowContaminations, shadowMissingOrigin, crossAgentDeps } = g.lint;
   let hasErrors = false;
 
   if (deadLinks.length) {
@@ -1895,6 +2014,19 @@ function cmdLint(args: string[]) {
     console.log(`\ni️  Orphan governance nodes (${orphans.length}, no inbound refs):`);
     for (const o of orphans.slice(0, 20)) console.log(`   ${o.id}`);
     if (orphans.length > 20) console.log(`   ... and ${orphans.length - 20} more`);
+  }
+  if (crossAgentDeps.length) {
+    console.log(`\nℹ️  Cross-agent dependencies (${crossAgentDeps.length}):`);
+    for (const dep of crossAgentDeps) {
+      const fileRel = dep.file.replace(HOME + "/", "");
+      if (dep.kind === "inject") {
+        console.log(`   [inject] ${fileRel} \u2192 ${dep.slug} (owned by: ${dep.targetAgent})`);
+      } else {
+        const src = dep.sourceId ?? fileRel;
+        const tgt = dep.targetId ?? `(agent: ${dep.targetAgent})`;
+        console.log(`   [link]   ${src} \u2192 ${tgt}`);
+      }
+    }
   }
   if (!hasErrors && !deadLinks.length && !duplicateIds.length) {
     console.log("\n✅ Lint clean (no errors).");

@@ -123,8 +123,9 @@ function slugToTitle(slug: string): string {
 }
 
 function cmdAdd(slug: string) {
-  const filePath = join(PHILOSOPHY_DIR, `${slug}.md`);
-  if (existsSync(filePath)) { console.error(`❌ Entry already exists: ${slug}`); process.exit(1); }
+  const filePath = join(PHILOSOPHY_DIR, `${slug}.dna`);
+  const legacyPath = join(PHILOSOPHY_DIR, `${slug}.md`);
+  if (existsSync(filePath) || existsSync(legacyPath)) { console.error(`❌ Entry already exists: ${slug}`); process.exit(1); }
   const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\ntags: []\n---\n\n# ${slug}\n\n## Principle\n\n(describe the principle here)\n`;
   writeFileSync(filePath, template, "utf-8");
   const editor = process.env.EDITOR || "vi";
@@ -133,14 +134,14 @@ function cmdAdd(slug: string) {
 }
 
 function cmdEdit(slug: string) {
-  const filePath = join(PHILOSOPHY_DIR, `${slug}.md`);
+  const filePath = existsSync(join(PHILOSOPHY_DIR, `${slug}.dna`)) ? join(PHILOSOPHY_DIR, `${slug}.dna`) : join(PHILOSOPHY_DIR, `${slug}.md`);
   if (!existsSync(filePath)) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
   const editor = process.env.EDITOR || "vi";
   execSync(`${editor} ${filePath}`, { stdio: "inherit" });
 }
 
 function cmdRm(slug: string) {
-  const filePath = join(PHILOSOPHY_DIR, `${slug}.md`);
+  const filePath = existsSync(join(PHILOSOPHY_DIR, `${slug}.dna`)) ? join(PHILOSOPHY_DIR, `${slug}.dna`) : join(PHILOSOPHY_DIR, `${slug}.md`);
   if (!existsSync(filePath)) { console.error(`❌ Entry not found: ${slug}`); process.exit(1); }
   try {
     execSync(`which trash`, { stdio: "ignore" });

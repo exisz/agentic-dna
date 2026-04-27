@@ -1,0 +1,101 @@
+{
+  "dna-agent": {
+    "prefix": "dna-agent",
+    "description": "DNA agent node template",
+    "body": [
+      "id: dna://agent/${1:name}",
+      "type: agent",
+      "title: \"${2:Agent Title}\"",
+      "status: active",
+      "goal: ${3:Agent mission}",
+      "boundary: ${4:Operational boundary}",
+      "tools:",
+      "  - ${5:tool-name}",
+      "links:",
+      "  - dna://${6:type}/${7:target}",
+      "serves:",
+      "  - ${8:who}"
+    ]
+  },
+  "dna-tool": {
+    "prefix": "dna-tool",
+    "description": "DNA tool node template",
+    "body": [
+      "id: dna://tool/${1:name}",
+      "type: tool",
+      "title: \"${2:Tool Title}\"",
+      "status: active",
+      "goal: ${3:What this tool does}",
+      "links:",
+      "  - dna://${4:type}/${5:target}"
+    ]
+  },
+  "dna-philosophy": {
+    "prefix": "dna-philosophy",
+    "description": "DNA philosophy node (Markdown+frontmatter)",
+    "body": [
+      "---",
+      "id: dna://philosophy/${1:slug}",
+      "type: philosophy",
+      "title: \"${2:Philosophy Title}\"",
+      "status: active",
+      "---",
+      "",
+      "# ${2:Philosophy Title}",
+      "",
+      "> ${3:One-line summary}",
+      "",
+      "## Principle",
+      "",
+      "${4:Core principle explanation}",
+      "",
+      "## Rules",
+      "",
+      "- ${5:Rule 1}",
+      "- ${6:Rule 2}"
+    ]
+  },
+  "dna-flow": {
+    "prefix": "dna-flow",
+    "description": "DNA flow procedure (Markdown+frontmatter)",
+    "body": [
+      "---",
+      "id: dna://flow/${1:slug}",
+      "type: flow",
+      "title: \"${2:Flow Title}\"",
+      "status: active",
+      "---",
+      "",
+      "# ${2:Flow Title}",
+      "",
+      "${3:Flow description}",
+      "",
+      "## Steps",
+      "",
+      "1. ${4:Step 1}",
+      "2. ${5:Step 2}",
+      "3. ${6:Step 3}"
+    ]
+  },
+  "dna-project": {
+    "prefix": "dna-project",
+    "description": "DNA project node template",
+    "body": [
+      "id: dna://project/${1:name}",
+      "type: project",
+      "title: \"${2:Project Title}\"",
+      "status: ${3|active,draft,archived|}",
+      "goal: ${4:Project goal}",
+      "links:",
+      "  - dna://repo/${5:repo-name}",
+      "  - dna://agent/${6:agent-name}"
+    ]
+  },
+  "dna-link": {
+    "prefix": "dna-link",
+    "description": "dna:// URI link",
+    "body": [
+      "dna://${1|agent,realm,philosophy,convention,protocol,flow,tool,repo,host,project,site,skill|}/${2:name}"
+    ]
+  }
+}

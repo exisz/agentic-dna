@@ -1,0 +1,78 @@
+{
+  "name": "vscode-dna",
+  "displayName": "DNA — Agent Governance Format",
+  "description": "Language support for .dna files — the unified format for AI agent fleet governance (agentic-dna)",
+  "version": "0.1.1",
+  "publisher": "Exis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exisz/agentic-dna"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "dna",
+    "agentic-dna",
+    "agent",
+    "governance",
+    "yaml",
+    "markdown"
+  ],
+  "activationEvents": [
+    "onLanguage:dna"
+  ],
+  "main": "./out/extension.js",
+  "icon": "icons/dna-icon.png",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dna",
+        "aliases": [
+          "DNA",
+          "dna"
+        ],
+        "extensions": [
+          ".dna"
+        ],
+        "icon": {
+          "light": "icons/dna-icon.svg",
+          "dark": "icons/dna-icon.svg"
+        },
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dna",
+        "scopeName": "source.dna",
+        "path": "./syntaxes/dna.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "dna",
+        "path": "./snippets/dna.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "prepackage": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^3.0.0"
+  }
+}

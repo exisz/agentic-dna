@@ -127,8 +127,9 @@ function slugToTitle(slug: string): string {
 }
 
 function cmdAddProtocol(slug: string) {
-  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
-  if (fs.existsSync(filePath)) { console.error(`❌ Protocol already exists: ${slug}`); process.exit(1); }
+  const filePath = path.join(PROTOCOL_DIR, `${slug}.dna`);
+  const legacyPath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  if (fs.existsSync(filePath) || fs.existsSync(legacyPath)) { console.error(`❌ Protocol already exists: ${slug}`); process.exit(1); }
   const template = `---\nid: ${slug}\ntitle: "${slugToTitle(slug)}"\ntags: []\n---\n\n# ${slug}\n\n## Description\n\n(describe the protocol here)\n`;
   fs.writeFileSync(filePath, template, 'utf-8');
   const editor = process.env.EDITOR || 'vi';
@@ -137,14 +138,14 @@ function cmdAddProtocol(slug: string) {
 }
 
 function cmdEditProtocol(slug: string) {
-  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  const filePath = fs.existsSync(path.join(PROTOCOL_DIR, `${slug}.dna`)) ? path.join(PROTOCOL_DIR, `${slug}.dna`) : path.join(PROTOCOL_DIR, `${slug}.md`);
   if (!fs.existsSync(filePath)) { console.error(`❌ Protocol not found: ${slug}`); process.exit(1); }
   const editor = process.env.EDITOR || 'vi';
   execSync(`${editor} ${filePath}`, { stdio: 'inherit' });
 }
 
 function cmdRmProtocol(slug: string) {
-  const filePath = path.join(PROTOCOL_DIR, `${slug}.md`);
+  const filePath = fs.existsSync(path.join(PROTOCOL_DIR, `${slug}.dna`)) ? path.join(PROTOCOL_DIR, `${slug}.dna`) : path.join(PROTOCOL_DIR, `${slug}.md`);
   if (!fs.existsSync(filePath)) { console.error(`❌ Protocol not found: ${slug}`); process.exit(1); }
   try {
     execSync('which trash', { stdio: 'ignore' });

@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DNA Node",
+  "description": "Schema for .dna YAML files (agentic-dna governance nodes)",
+  "type": "object",
+  "required": ["id", "type", "title"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dna://[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$",
+      "description": "Canonical DNA URI — dna://<type>/<name>"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["agent", "realm", "philosophy", "convention", "protocol", "flow", "tool", "repo", "host", "project", "site", "skill", "middleware", "maintained-oss"],
+      "description": "DNA node type"
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "deprecated", "draft", "archived"],
+      "description": "Node status"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^dna://[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"
+      },
+      "description": "Outbound edges to other DNA nodes"
+    },
+    "deprecated_by": {
+      "type": "string",
+      "pattern": "^dna://",
+      "description": "URI of replacing node"
+    },
+    "shadow_origin": {
+      "type": "string",
+      "description": "Origin of shadowed node"
+    },
+    "goal": {
+      "type": "string",
+      "description": "Node goal/mission"
+    },
+    "boundary": {
+      "type": "string",
+      "description": "Operational boundary"
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tools available to this node"
+    },
+    "serves": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What/who this node serves"
+    }
+  },
+  "additionalProperties": true
+}
