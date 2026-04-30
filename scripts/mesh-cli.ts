@@ -19,8 +19,8 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join, basename, dirname, relative } from "node:path";
 import yaml from "js-yaml";
-import { HOME, DNA_DATA, parseFrontmatter } from "../lib/common.js";
-import { loadConfig, getTypeDef } from "../lib/config.js";
+import { HOME, DNA_DATA, parseFrontmatter } from "../lib/common.ts";
+import { loadConfig, getTypeDef } from "../lib/config.ts";
 
 // --- Config ---
 
