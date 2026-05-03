@@ -82,12 +82,11 @@ dna philosophy --search "keyword"               # Search
 dna philosophy --agent <agent>                  # Agent's philosophy
 
 # ── Convention (actionable rules) ─────────────
-dna convention --list                           # List global conventions
-dna convention <slug>                           # Full text
-dna convention --inject <slug>                  # Injectable format
-dna convention --agent <agent>                  # Agent's local conventions
-dna convention --agent <agent> --all            # Global + local
-dna convention --search "keyword"               # Search
+dna convention --list                           # List all conventions (global + workspace-local merged)
+dna convention <slug>                           # Show entry
+dna convention --inject <slug>                  # Injectable callout block
+dna convention --agent <agent>                  # Agent's conventions
+dna convention --search "keyword"               # Unified search (filtered to conventions)
 
 # ── Protocol (git/CI/deploy paradigms) ───────
 DNA protocol --list                          # List all protocol paradigms
@@ -101,8 +100,9 @@ dna flow --list                                  # List all flows
 dna flow <slug>                                  # Full flow definition
 dna flow --inject <slug>                         # Injectable format
 dna flow --search "keyword"                      # Search flows
-dna flow --add <slug>                            # Create new flow
 dna flow --agent <id>                            # Force workspace target
+# Add new entries by dropping a .dna file with `type: flow` frontmatter into
+# ~/.openclaw/.dna/flows/
 
 # ── Inbox (agent message routing) ─────────────
 dna inbox ls --agent <agent>                    # Actionable inbox items

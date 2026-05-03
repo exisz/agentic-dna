@@ -74,7 +74,9 @@ case "$subcmd" in
     exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" ls "$@"
     ;;
   find)
-    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" find "$@"
+    # 'find' is now an alias for 'search' — keeps muscle memory while gaining
+    # semantic + PageRank ranking. Use 'dna search --exact' for old behavior.
+    exec "$TSX" "$SCRIPTS/search-cli.$EXT" "$@"
     ;;
   show)
     exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" show "$@"
@@ -90,6 +92,9 @@ case "$subcmd" in
     ;;
   impact)
     exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" impact "$@"
+    ;;
+  centrality)
+    exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" centrality "$@"
     ;;
   # ── dna node <id> (NEBULA-55) ─────────────────────
   node)
@@ -157,6 +162,7 @@ case "$subcmd" in
     echo "  links <id>    Outbound edges"
     echo "  refs <id>     Inbound edges"
     echo "  impact <id>   Recursive inbound walk"
+    echo "  centrality    PageRank — keystone nodes by importance"
     echo ""
     echo "Examples:"
     echo "  dna init"

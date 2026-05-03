@@ -75,22 +75,26 @@ Any unrecognized subcommand automatically falls through to `dna tool <name>`, so
 
 ## Search
 
-Two complementary commands:
-
-- **`dna find <pat>`** — fast substring match on node id + title. Use for known IDs.
-- **`dna search <query>`** — semantic search using local ONNX embeddings. Use for natural-language queries.
+One unified command. Old `dna find` is now an alias for `dna search` (use `--exact` for substring-only behavior).
 
 ```bash
-dna search "test before code"
-# 42% → dna://philosophy/test-driven ("Test-Driven — Tests Before Code")
-
-dna search "knowledge retrieval" --type philosophy
-dna search "graph traversal" --top 10 --json
-dna search --status      # index info (size, entries, by type)
-dna search --reindex     # force full re-embed
+dna search nebula                              # substring match: dna://board/nebula, dna://agent/nebula, ...
+dna search "test before code"                  # semantic: → dna://philosophy/test-driven
+dna search "documentation matters" --type philosophy
+dna search "ticket-before-work" --exact        # exact id
+dna search "graph traversal" --top 10 --json   # machine-readable
+dna search --status                            # index info (size, entries, by type)
+dna search --reindex                           # force full re-embed
 ```
 
-The model (`Xenova/all-MiniLM-L6-v2`, ~22MB) downloads once on first use to `~/.cache/huggingface/`. Embeddings are stored at `<DNA_DATA>/.embeddings.json` (≈3MB for 389 nodes). `dna mesh scan` re-embeds only changed nodes; everything is offline after first download.
+Results combine three signals:
+- **Substring** match on id+title (≡, base score 0.7)
+- **Semantic** cosine similarity via local ONNX embeddings (~)
+- **PageRank** boost for keystone nodes (computed via `graphology`)
+
+The model (`Xenova/all-MiniLM-L6-v2`, ~22MB) downloads once on first use to `~/.cache/huggingface/`. Embeddings are stored at `<DNA_DATA>/.embeddings.json` (≈3MB for 389 nodes); PageRank at `<DNA_DATA>/.pagerank.json`. Both incremental: `dna mesh scan` only re-embeds changed nodes; PageRank recomputes only when edge count changes.
+
+Also: **`dna mesh centrality`** — list keystone nodes by PageRank.
 
 ## Development
 

@@ -3301,6 +3301,7 @@ Subcommands:
   links <id>           Outbound edges (X references...)
   refs [--verb <verb>] <id>  Inbound edges grouped by verb
   impact <id>          Recursive inbound walk (what depends on X)
+  centrality [--top N] [--type T]  PageRank — keystone nodes ranked by importance
   tour [id]            Guided walkthrough of a node (or empire overview if no id)
   lint [--strict] [--show-cycles]  Dead links, self-loops, missing back-links, shadows, path mismatches, titles, orphans
   upgrade-legacy [--apply]         Add explicit type: frontmatter to legacy governance files (dry-run by default)
@@ -3342,6 +3343,49 @@ Examples:
   dna mesh sync-shadows --filter repo/exisz-agentic-dna --apply`);
 }
 
+// --- centrality (PageRank) ----------------------------------------------
+
+function cmdCentrality(args: string[]) {
+  void runCentrality(args);
+}
+
+async function runCentrality(args: string[]) {
+  const { getOrComputePageRank } = await import("../lib/pagerank.ts");
+  const top = parseInt(
+    (args.includes("--top") ? args[args.indexOf("--top") + 1] : "20") || "20",
+    10,
+  );
+  const typeFilter = args.includes("--type")
+    ? args[args.indexOf("--type") + 1]
+    : null;
+  const asJson = args.includes("--json");
+
+  const g = buildGraph();
+  const pr = getOrComputePageRank(g);
+  const all = Object.entries(pr.ranks)
+    .map(([id, rank]) => {
+      const n = g.nodes.get(id);
+      return { id, rank, type: n?.type || "?", title: n?.title || "" };
+    })
+    .filter((r) => !typeFilter || r.type === typeFilter)
+    .sort((a, b) => (b.rank as number) - (a.rank as number))
+    .slice(0, top);
+
+  if (asJson) {
+    console.log(JSON.stringify(all, null, 2));
+    return;
+  }
+
+  console.log(`🌟 Top ${all.length} keystone nodes (PageRank)${typeFilter ? ` — type=${typeFilter}` : ""}:\n`);
+  for (const r of all) {
+    const score = ((r.rank as number) * 1000).toFixed(2).padStart(7);
+    console.log(`  ${score}  ${(r.type as string).padEnd(12)}  ${r.id}`);
+    if (r.title && r.title !== r.id) {
+      console.log(`           ${"".padEnd(12)}    └─ ${r.title}`);
+    }
+  }
+  console.log("\n💡 score × 1000 for readability. Higher = more depended-upon.");
+}
 // --- Entry ---
 
 if (process.argv[1]?.endsWith("mesh-cli.ts") || process.argv[1]?.endsWith("mesh-cli.js")) {
@@ -3355,6 +3399,7 @@ switch (subcmd) {
   case "links":           cmdLinks(rest); break;
   case "refs":            cmdRefs(rest); break;
   case "impact":          cmdImpact(rest); break;
+  case "centrality":      cmdCentrality(rest); break;
   case "lint":            cmdLint(rest); break;
   case "upgrade-legacy":  cmdUpgradeLegacy(rest); break;
   case "heal":            await cmdHeal(rest); break;
