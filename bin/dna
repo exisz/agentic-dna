@@ -60,6 +60,9 @@ case "$subcmd" in
   flow)
     exec "$TSX" "$SCRIPTS/flow-cli.$EXT" "$@"
     ;;
+  search)
+    exec "$TSX" "$SCRIPTS/search-cli.$EXT" "$@"
+    ;;
   mesh)
     exec "$TSX" "$SCRIPTS/mesh-cli.$EXT" "$@"
     ;;
@@ -136,6 +139,7 @@ case "$subcmd" in
     echo "  convention    Convention rules — global & local"
     echo "  protocol      Protocol paradigms — git/CI/deploy levels"
     echo "  flow          Flow procedures — global & local"
+    echo "  search        Semantic search over the mesh (local ONNX embeddings)"
     echo "  mesh          Graph queries over distributed dna files (scan/show/links/refs/impact/lint)"
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
@@ -160,6 +164,7 @@ case "$subcmd" in
     echo "  dna ls project"
     echo "  dna node dna://agent/nebula --links"
     echo "  dna find metu"
+    echo "  dna search 'graph traversal'"
     echo "  dna hydrate --all"
     echo "  dna flow --list"
     ;;

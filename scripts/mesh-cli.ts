@@ -1189,6 +1189,38 @@ function cmdScan() {
     console.log(`   ${t.padEnd(15)} ${n}`);
   }
   console.log(`\nCache: ${relPath(CACHE_PATH)}`);
+
+  // Incremental embedding refresh — only if an index already exists.
+  // First-time index build is triggered lazily by `dna search` to keep `dna mesh scan`
+  // fast for users who never use semantic search.
+  void maybeRefreshEmbeddings(g);
+}
+
+async function maybeRefreshEmbeddings(g: MeshGraph): Promise<void> {
+  try {
+    const { existsSync } = await import("node:fs");
+    const { EMBEDDINGS_PATH, updateIndex, saveIndex } = await import("../lib/embeddings.ts");
+    if (!existsSync(EMBEDDINGS_PATH)) return; // no index yet — lazy build on first search
+
+    const nodes = [...g.nodes.values()].map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      body: n._body,
+      tags: Array.isArray(n.fields?.tags) ? n.fields.tags : undefined,
+      fields: n.fields,
+    }));
+    const { index, stats } = await updateIndex(nodes);
+    if (stats.embedded || stats.removed) {
+      saveIndex(index);
+      console.log(
+        `\n🔎 Embeddings: ${stats.embedded} re-embedded, ${stats.reused} reused, ${stats.removed} removed`,
+      );
+    }
+  } catch (e: any) {
+    // Non-fatal: embeddings are optional
+    console.error(`⚠️  embedding refresh skipped: ${e?.message || e}`);
+  }
 }
 
 function cmdLs(args: string[]) {

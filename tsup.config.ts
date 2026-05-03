@@ -7,6 +7,7 @@ export default defineConfig({
     "scripts/convention-cli.ts",
     "scripts/protocol-cli.ts",
     "scripts/flow-cli.ts",
+    "scripts/search-cli.ts",
     "scripts/tool-cli.ts",
     "scripts/skill-cli.ts",
     "scripts/hydrate-cli.ts",
@@ -18,5 +19,5 @@ export default defineConfig({
   clean: true,
   splitting: false,
   // Don't bundle node_modules dependencies
-  external: ["js-yaml"],
+  external: ["js-yaml", "@huggingface/transformers"],
 });

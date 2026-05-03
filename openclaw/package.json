@@ -1,6 +1,6 @@
 {
   "name": "openclaw-dna",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "type": "module",
   "description": "DNA governance system — OpenClaw plugin for agentic-dna",
   "license": "Apache-2.0",

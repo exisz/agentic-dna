@@ -1,6 +1,6 @@
 {
   "name": "agentic-dna",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "description": "Governance and knowledge system for AI agent fleets",
   "type": "module",
   "license": "Apache-2.0",
@@ -34,6 +34,7 @@
     "cli"
   ],
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {

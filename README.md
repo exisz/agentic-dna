@@ -68,9 +68,29 @@ dna cron up <id>               # Increase cron frequency
 dna cron down <id>             # Decrease cron frequency
 dna protocol --list            # List protocol paradigms
 dna skill ls                   # List manual skills
+dna search <query>             # Semantic search over the mesh (local ONNX embeddings)
 ```
 
 Any unrecognized subcommand automatically falls through to `dna tool <name>`, so registered toolbox entries work as top-level commands (e.g. `dna agentbase` → `dna tool agentbase`).
+
+## Search
+
+Two complementary commands:
+
+- **`dna find <pat>`** — fast substring match on node id + title. Use for known IDs.
+- **`dna search <query>`** — semantic search using local ONNX embeddings. Use for natural-language queries.
+
+```bash
+dna search "test before code"
+# 42% → dna://philosophy/test-driven ("Test-Driven — Tests Before Code")
+
+dna search "knowledge retrieval" --type philosophy
+dna search "graph traversal" --top 10 --json
+dna search --status      # index info (size, entries, by type)
+dna search --reindex     # force full re-embed
+```
+
+The model (`Xenova/all-MiniLM-L6-v2`, ~22MB) downloads once on first use to `~/.cache/huggingface/`. Embeddings are stored at `<DNA_DATA>/.embeddings.json` (≈3MB for 389 nodes). `dna mesh scan` re-embeds only changed nodes; everything is offline after first download.
 
 ## Development
 
