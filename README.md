@@ -102,8 +102,10 @@ Also: **`dna mesh centrality`** — list keystone nodes by PageRank.
 `dna distill` is the knowledge garbage collector: it uses the same local embedding stack to find where knowledge should be compressed into DNA instead of repeated across files.
 
 ```bash
-dna distill scan --scope cwd                  # read-only duplicate audit for current workspace
-dna distill scan --scope global --top 50      # scan OpenClaw workspaces + DNA roots
+dna distill scan                              # read-only audit for the global OpenClaw corpus
+dna distill scan --scope cwd                  # current workspace only
+dna distill scan --root ~/.openclaw --top 50  # explicit recursive root
+dna distill scan --glob '~/.openclaw/**/*.md' # arbitrary Markdown glob range + DNA mesh
 dna distill guard "ticket before work"        # check if a concept already exists before writing
 ```
 
@@ -112,7 +114,7 @@ Finding classes:
 - **dna-dna** — DNA entries overlap; merge/retire one canonical slug.
 - **markdown-markdown** — repeated Markdown; extract/distill shared idea into DNA, then point both sections at it.
 
-Default mode is read-only. It writes only an embedding cache at `<DNA_DATA>/.distill-embeddings.json`.
+Default mode is read-only and corpus-level: OpenClaw workspaces, realms, and DNA roots. Use `--scope cwd`, repeatable `--root PATH`, or repeatable `--glob PATTERN` to narrow or reshape the corpus. It writes only an embedding cache at `<DNA_DATA>/.distill-embeddings.json`.
 
 ## Development
 

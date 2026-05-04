@@ -8,10 +8,11 @@
  *
  * MVP commands:
  *   dna distill scan [--threshold 0.82] [--top 30] [--json] [--scope cwd|global]
+ *   dna distill scan --root ~/.openclaw --glob '<markdown-glob>'
  *   dna distill guard <concept> [--top 8] [--json]
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { buildGraph } from "./mesh-cli.ts";
 import { DNA_DATA, HOME, parseFrontmatter, workspaceFromCwd } from "../lib/common.ts";
 import { buildEmbedText, contentHashOf, cosineSim, embed } from "../lib/embeddings.ts";
@@ -67,6 +68,17 @@ function flagArg(args: string[], name: string): string | undefined {
   return i >= 0 ? args[i + 1] : undefined;
 }
 
+function flagArgs(args: string[], name: string): string[] {
+  const values: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === name && args[i + 1]) {
+      values.push(args[i + 1]);
+      i++;
+    }
+  }
+  return values;
+}
+
 function flagBool(args: string[], name: string): boolean {
   return args.includes(name);
 }
@@ -81,6 +93,11 @@ function stripFlags(args: string[], specs: Record<string, boolean>): string[] {
     out.push(args[i]);
   }
   return out;
+}
+
+function expandPath(p: string): string {
+  const expanded = p === "~" ? HOME : p.startsWith("~/") ? join(HOME, p.slice(2)) : p;
+  return isAbsolute(expanded) ? expanded : resolve(process.cwd(), expanded);
 }
 
 function walk(root: string, depth = 0): string[] {
@@ -104,18 +121,92 @@ function walk(root: string, depth = 0): string[] {
   return out;
 }
 
-function scanRoots(scope: "cwd" | "global"): string[] {
+function scanRoots(scope: "cwd" | "global", explicitRoots: string[] = []): string[] {
+  if (explicitRoots.length) {
+    return [...new Set(explicitRoots.map(expandPath).filter(existsSync))];
+  }
   if (scope === "cwd") {
     const ws = workspaceFromCwd(process.cwd()) || process.cwd();
     return [ws];
   }
+  // Corpus-level by default: all OpenClaw workspace docs plus DNA roots.
   return [
     join(HOME, ".openclaw/workspace"),
     join(HOME, ".openclaw/workspaces"),
+    join(HOME, ".openclaw/workspaces-hq"),
+    join(HOME, ".openclaw/workspaces-personal"),
     join(HOME, ".openclaw/realms"),
     join(HOME, ".openclaw/.dna"),
     join(HOME, ".dna"),
   ].filter((p, i, arr) => existsSync(p) && arr.indexOf(p) === i);
+}
+
+function globToRegex(pattern: string): RegExp {
+  const abs = expandPath(pattern).replace(/\\/g, "/");
+  let out = "^";
+  for (let i = 0; i < abs.length; i++) {
+    const c = abs[i];
+    const n = abs[i + 1];
+    if (c === "*") {
+      if (n === "*") {
+        const after = abs[i + 2];
+        if (after === "/") {
+          out += "(?:.*/)?";
+          i += 2;
+        } else {
+          out += ".*";
+          i++;
+        }
+      } else {
+        out += "[^/]*";
+      }
+    } else if (c === "?") {
+      out += "[^/]";
+    } else if (c === "{") {
+      const end = abs.indexOf("}", i + 1);
+      if (end > i) {
+        const choices = abs.slice(i + 1, end).split(",").map((x) => x.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"));
+        out += `(?:${choices.join("|")})`;
+        i = end;
+      } else {
+        out += "\\{";
+      }
+    } else {
+      out += c.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+    }
+  }
+  out += "$";
+  return new RegExp(out);
+}
+
+function staticGlobRoot(pattern: string): string {
+  const abs = expandPath(pattern);
+  const wildcard = abs.search(/[\*\?\{]/);
+  if (wildcard === -1) return existsSync(abs) && statSync(abs).isDirectory() ? abs : dirname(abs);
+  const prefix = abs.slice(0, wildcard);
+  const slash = prefix.lastIndexOf("/");
+  return slash > 0 ? prefix.slice(0, slash) : "/";
+}
+
+function markdownFilesFromGlobs(patterns: string[]): string[] {
+  const out = new Set<string>();
+  for (const raw of patterns) {
+    const pattern = expandPath(raw);
+    if (!/[\*\?\{]/.test(pattern)) {
+      if (existsSync(pattern)) {
+        const st = statSync(pattern);
+        if (st.isDirectory()) walk(pattern).forEach((p) => out.add(p));
+        else if (st.isFile() && pattern.endsWith(".md")) out.add(pattern);
+      }
+      continue;
+    }
+    const root = staticGlobRoot(pattern);
+    const re = globToRegex(pattern);
+    for (const md of walk(root)) {
+      if (re.test(md.replace(/\\/g, "/"))) out.add(md);
+    }
+  }
+  return [...out];
 }
 
 function compact(s: string): string {
@@ -182,7 +273,13 @@ function splitMarkdown(path: string): Artifact[] {
   });
 }
 
-function collectArtifacts(scope: "cwd" | "global"): Artifact[] {
+interface CollectOptions {
+  scope: "cwd" | "global";
+  roots?: string[];
+  globs?: string[];
+}
+
+function collectArtifacts(opts: CollectOptions): Artifact[] {
   const graph = buildGraph();
   const meshPaths = new Set<string>();
   const artifacts: Artifact[] = [];
@@ -209,12 +306,16 @@ function collectArtifacts(scope: "cwd" | "global"): Artifact[] {
     });
   }
 
-  for (const root of scanRoots(scope)) {
-    for (const md of walk(root)) {
-      // Frontmatter mesh Markdown is represented as DNA above; avoid comparing it to itself.
-      if (meshPaths.has(resolve(md))) continue;
-      artifacts.push(...splitMarkdown(md));
-    }
+  const mdFiles = new Set<string>();
+  for (const root of scanRoots(opts.scope, opts.roots || [])) {
+    for (const md of walk(root)) mdFiles.add(md);
+  }
+  for (const md of markdownFilesFromGlobs(opts.globs || [])) mdFiles.add(md);
+
+  for (const md of mdFiles) {
+    // Frontmatter mesh Markdown is represented as DNA above; avoid comparing it to itself.
+    if (meshPaths.has(resolve(md))) continue;
+    artifacts.push(...splitMarkdown(md));
   }
 
   // Dedupe IDs, preserving first occurrence.
@@ -325,18 +426,21 @@ async function cmdScan(args: string[]): Promise<void> {
   const top = Number(flagArg(args, "--top") || DEFAULT_TOP);
   const asJson = flagBool(args, "--json");
   const quiet = asJson || flagBool(args, "--quiet");
-  const scope = (flagArg(args, "--scope") === "global" ? "global" : "cwd") as "cwd" | "global";
+  const scope = (flagArg(args, "--scope") === "cwd" ? "cwd" : "global") as "cwd" | "global";
+  const roots = flagArgs(args, "--root");
+  const globs = flagArgs(args, "--glob");
 
-  const artifacts = collectArtifacts(scope);
+  const artifacts = collectArtifacts({ scope, roots, globs });
   const vectors = await vectorsFor(artifacts, quiet);
   const findings = buildFindings(artifacts, vectors, threshold, top);
 
   if (asJson) {
-    console.log(JSON.stringify({ threshold, scope, artifacts: artifacts.length, findings: findings.map(jsonFinding) }, null, 2));
+    console.log(JSON.stringify({ threshold, scope, roots, globs, artifacts: artifacts.length, findings: findings.map(jsonFinding) }, null, 2));
     return;
   }
 
-  console.log(`🧬 DNA Distill scan — ${artifacts.length} artifacts, threshold=${threshold}, scope=${scope}`);
+  const range = roots.length || globs.length ? `, roots=${roots.length}, globs=${globs.length}` : "";
+  console.log(`🧬 DNA Distill scan — ${artifacts.length} artifacts, threshold=${threshold}, scope=${scope}${range}`);
   if (!findings.length) {
     console.log("No duplicate candidates found. Try lowering --threshold, e.g. 0.76.");
     return;
@@ -359,13 +463,15 @@ async function cmdGuard(args: string[]): Promise<void> {
   const top = Number(flagArg(args, "--top") || "8");
   const asJson = flagBool(args, "--json");
   const quiet = asJson || flagBool(args, "--quiet");
-  const query = stripFlags(args, { "--top": true, "--json": false, "--quiet": false }).join(" ").trim();
+  const roots = flagArgs(args, "--root");
+  const globs = flagArgs(args, "--glob");
+  const query = stripFlags(args, { "--top": true, "--json": false, "--quiet": false, "--root": true, "--glob": true }).join(" ").trim();
   if (!query) {
     console.error("Usage: dna distill guard <concept> [--top N] [--json]");
     process.exit(1);
   }
 
-  const artifacts = collectArtifacts("global");
+  const artifacts = collectArtifacts({ scope: "global", roots, globs });
   const vectors = await vectorsFor(artifacts, quiet);
   const qVec = await embed(query);
   const ranked = artifacts.map((a) => ({ a, score: cosineSim(qVec, vectors.get(a.id) || []) }))
@@ -402,8 +508,14 @@ function printHelp(): void {
   console.log(`🧬 DNA Distill — semantic dedup / knowledge distillation audit
 
 Usage:
-  dna distill scan [--threshold 0.82] [--top 30] [--scope cwd|global] [--json]
-  dna distill guard <concept> [--top 8] [--json]
+  dna distill scan [--threshold 0.82] [--top 30] [--scope global|cwd] [--root PATH...] [--glob PATTERN...] [--json]
+  dna distill guard <concept> [--top 8] [--root PATH...] [--glob PATTERN...] [--json]
+
+Corpus range:
+  default              Global OpenClaw corpus: workspaces + realms + DNA roots
+  --scope cwd          Current workspace only
+  --root ~/.openclaw   Add/replace an explicit recursive root; repeatable
+  --glob '**/*.md'     Add Markdown glob range; repeatable
 
 Dedup classes:
   dna-markdown        Markdown repeats canonical DNA → replace prose with pointer/injection

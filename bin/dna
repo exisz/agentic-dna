@@ -175,7 +175,7 @@ case "$subcmd" in
     echo "  dna node dna://agent/nebula --links"
     echo "  dna find metu"
     echo "  dna search 'graph traversal'"
-    echo "  dna distill scan --scope cwd"
+    echo "  dna distill scan --glob '~/.openclaw/**/*.md'"
     echo "  dna hydrate --all"
     echo "  dna flow --list"
     ;;
