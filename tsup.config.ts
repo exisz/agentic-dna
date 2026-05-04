@@ -8,6 +8,8 @@ export default defineConfig({
     "scripts/protocol-cli.ts",
     "scripts/flow-cli.ts",
     "scripts/search-cli.ts",
+    "scripts/distill-cli.ts",
+    "scripts/mesh-cli.ts",
     "scripts/tool-cli.ts",
     "scripts/skill-cli.ts",
     "scripts/hydrate-cli.ts",

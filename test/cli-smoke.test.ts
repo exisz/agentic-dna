@@ -24,4 +24,10 @@ describe('dna CLI smoke tests', () => {
     const out = dna(['tool', 'ls']);
     assert.ok(out.includes('Toolbox'));
   });
+
+  it('dna distill help exits 0', () => {
+    const out = dna(['distill', 'help']);
+    assert.ok(out.includes('DNA Distill'));
+    assert.ok(out.includes('dna-markdown'));
+  });
 });

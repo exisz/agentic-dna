@@ -69,6 +69,7 @@ dna cron down <id>             # Decrease cron frequency
 dna protocol --list            # List protocol paradigms
 dna skill ls                   # List manual skills
 dna search <query>             # Semantic search over the mesh (local ONNX embeddings)
+dna distill scan               # Find semantic duplicate/overlap candidates across DNA + Markdown
 ```
 
 Any unrecognized subcommand automatically falls through to `dna tool <name>`, so registered toolbox entries work as top-level commands (e.g. `dna agentbase` → `dna tool agentbase`).
@@ -95,6 +96,23 @@ Results combine three signals:
 The model (`Xenova/all-MiniLM-L6-v2`, ~22MB) downloads once on first use to `~/.cache/huggingface/`. Embeddings are stored at `<DNA_DATA>/.embeddings.json` (≈3MB for 389 nodes); PageRank at `<DNA_DATA>/.pagerank.json`. Both incremental: `dna mesh scan` only re-embeds changed nodes; PageRank recomputes only when edge count changes.
 
 Also: **`dna mesh centrality`** — list keystone nodes by PageRank.
+
+## Distill
+
+`dna distill` is the knowledge garbage collector: it uses the same local embedding stack to find where knowledge should be compressed into DNA instead of repeated across files.
+
+```bash
+dna distill scan --scope cwd                  # read-only duplicate audit for current workspace
+dna distill scan --scope global --top 50      # scan OpenClaw workspaces + DNA roots
+dna distill guard "ticket before work"        # check if a concept already exists before writing
+```
+
+Finding classes:
+- **dna-markdown** — Markdown repeats canonical DNA; replace prose with a `{{dna ... --inject ...}}` pointer or `dna://` reference.
+- **dna-dna** — DNA entries overlap; merge/retire one canonical slug.
+- **markdown-markdown** — repeated Markdown; extract/distill shared idea into DNA, then point both sections at it.
+
+Default mode is read-only. It writes only an embedding cache at `<DNA_DATA>/.distill-embeddings.json`.
 
 ## Development
 
