@@ -13,6 +13,11 @@
  *   dna mesh refs <id>             Inbound edges
  *   dna mesh impact <id>           Recursive inbound walk
  *   dna mesh lint                  Surface dead links + near-miss filenames
+ *
+ * Scope:
+ *   When AGENT_ID/DNA_AGENT_ID is set, mesh queries include global DNA plus the
+ *   current agent's local/project DNA by default. Use --include-other-agents
+ *   (alias: --all-agents) to inspect other agents' local DNA explicitly.
  */
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -471,6 +476,54 @@ function walkForCandidates(root: string, depth = 0): string[] {
   return out;
 }
 
+export interface BuildGraphOptions {
+  /** Include local .dna files from agents other than the current AGENT_ID. */
+  includeOtherAgentsLocal?: boolean;
+}
+
+function isTruthyEnv(value: string | undefined): boolean {
+  return !!value && !["0", "false", "no", "off"].includes(value.toLowerCase());
+}
+
+function currentAgentSlugOrNull(): string | null {
+  try {
+    const { id } = resolveAgentMain();
+    return id.replace(/^dna:\/\/agent\//, "");
+  } catch {
+    return null;
+  }
+}
+
+function agentLocalOwnerSlug(path: string): string | null {
+  const workspacesPrefix = join(HOME, ".openclaw/workspaces") + "/";
+  if (path.startsWith(workspacesPrefix)) {
+    const rest = path.slice(workspacesPrefix.length);
+    return rest.split("/")[0] || null;
+  }
+
+  const mainWorkspacePrefix = join(HOME, ".openclaw/workspace") + "/";
+  if (path.startsWith(mainWorkspacePrefix)) return "claw";
+
+  return null;
+}
+
+function filterOtherAgentLocalCandidates(paths: string[], opts: BuildGraphOptions = {}): string[] {
+  const includeOtherAgentsLocal =
+    opts.includeOtherAgentsLocal ||
+    isTruthyEnv(process.env.DNA_INCLUDE_OTHER_AGENTS_LOCAL) ||
+    isTruthyEnv(process.env.DNA_INCLUDE_OTHER_AGENT_LOCAL);
+  if (includeOtherAgentsLocal) return paths;
+
+  const currentAgent = currentAgentSlugOrNull();
+  // Outside an identified agent runtime, preserve historical full-mesh behavior for operators/dev scripts.
+  if (!currentAgent) return paths;
+
+  return paths.filter((path) => {
+    const owner = agentLocalOwnerSlug(path);
+    return !owner || owner === currentAgent;
+  });
+}
+
 /** Recursively walk YAML object, extracting all string values. */
 function walkStrings(obj: any, fieldPath: string, visit: (s: string, fp: string) => void) {
   if (obj == null) return;
@@ -909,7 +962,7 @@ function _scanCitations_DISABLED(
 }
 
 /** Build the full graph by scanning. */
-export function buildGraph(): MeshGraph {
+export function buildGraph(opts: BuildGraphOptions = {}): MeshGraph {
   const graph: MeshGraph = {
     nodes: new Map(),
     pathIndex: new Map(),
@@ -941,8 +994,8 @@ export function buildGraph(): MeshGraph {
     if (process.env.DEBUG_MESH) console.error(`[mesh] root=${root} found=${found.length}`);
     candidates.push(...found);
   }
-  // Dedupe paths (in case of overlapping roots)
-  const uniquePaths = [...new Set(candidates)];
+  // Dedupe paths (in case of overlapping roots), then apply identity-aware local scope.
+  const uniquePaths = filterOtherAgentLocalCandidates([...new Set(candidates)], opts);
   // Priority sort: when both `foo.dna` and `foo.dna.yml` exist for the same id,
   // the new `.dna` format should win. Since graph.nodes uses last-wins below,
   // process `.dna` files LAST.
@@ -1018,8 +1071,14 @@ export function buildGraph(): MeshGraph {
     }
   }
 
-  // Cache
-  try {
+  // Cache only for full-mesh/operator scans. Identity-scoped agent queries must not
+  // overwrite the canonical mesh cache with a partial self-only view.
+  const shouldWriteCanonicalCache =
+    opts.includeOtherAgentsLocal ||
+    isTruthyEnv(process.env.DNA_INCLUDE_OTHER_AGENTS_LOCAL) ||
+    isTruthyEnv(process.env.DNA_INCLUDE_OTHER_AGENT_LOCAL) ||
+    !currentAgentSlugOrNull();
+  if (shouldWriteCanonicalCache) try {
     const cache = {
       generated_at: new Date().toISOString(),
       stats: {
@@ -3344,6 +3403,10 @@ Legacy edge kinds (still parsed for backward compat):
 
 ID format: dna://<type>/<id>  (e.g. dna://agent/nebula)
 
+Scope:
+  With AGENT_ID/DNA_AGENT_ID, defaults include global DNA + current agent local DNA only.
+  Add --include-other-agents (alias --all-agents) to inspect other agents' local DNA.
+
 Examples:
   dna mesh scan
   dna mesh ls --type agent
@@ -3399,8 +3462,15 @@ async function runCentrality(args: string[]) {
 }
 // --- Entry ---
 
+function consumeCrossAgentOverrideFlag(args: string[]): string[] {
+  const out = args.filter((arg) => arg !== "--include-other-agents" && arg !== "--all-agents");
+  if (out.length !== args.length) process.env.DNA_INCLUDE_OTHER_AGENTS_LOCAL = "1";
+  return out;
+}
+
 if (process.argv[1]?.endsWith("mesh-cli.ts") || process.argv[1]?.endsWith("mesh-cli.js")) {
-  const [, , subcmd, ...rest] = process.argv;
+  const [, , subcmd, ...rawRest] = process.argv;
+  const rest = consumeCrossAgentOverrideFlag(rawRest);
 switch (subcmd) {
   case "scan":            cmdScan(); break;
   case "ls":              rest[0] === "remote" ? cmdLsRemote() : cmdLs(rest); break;

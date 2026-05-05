@@ -219,6 +219,9 @@ async function rankUnified(
 // ── commands ────────────────────────────────────────────────────────────────
 
 async function cmdSearch(rawArgs: string[], typeOverride?: string): Promise<void> {
+  const hasCrossAgentOverride = rawArgs.includes("--include-other-agents") || rawArgs.includes("--all-agents");
+  if (hasCrossAgentOverride) process.env.DNA_INCLUDE_OTHER_AGENTS_LOCAL = "1";
+
   const top = parseInt(flagArg(rawArgs, "--top") || "5", 10);
   const typeFilter = typeOverride || flagArg(rawArgs, "--type");
   const asJson = flagBool(rawArgs, "--json");
@@ -230,6 +233,8 @@ async function cmdSearch(rawArgs: string[], typeOverride?: string): Promise<void
   args = dropFlag(args, "--json", false);
   args = dropFlag(args, "--exact", false);
   args = dropFlag(args, "--quiet", false);
+  args = dropFlag(args, "--include-other-agents", false);
+  args = dropFlag(args, "--all-agents", false);
 
   const query = args.join(" ").trim();
   if (!query) {
@@ -331,6 +336,8 @@ Usage:
   dna search <query> --type TYPE    Filter by node type (philosophy/convention/...)
   dna search <query> --exact        Substring only (skip semantic)
   dna search <query> --json         Machine-readable
+  dna search <query> --include-other-agents
+                                      Include other agents' local DNA
   dna search --reindex              Force full re-embed
   dna search --status               Show index info
 

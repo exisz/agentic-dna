@@ -150,13 +150,20 @@ Usage:
   dna ${opts.type} --inject <slug>               Injectable callout block
   dna ${opts.type} --search <query>              Unified search (semantic + substring + PageRank)
   dna ${opts.type} --agent <id>                  Show an agent's ${opts.type} list
+  dna ${opts.type} --list --include-other-agents Include other agents' local DNA
 
 All ${opts.type} entries live in the mesh as dna://${opts.type}/<slug>.
+When AGENT_ID/DNA_AGENT_ID is set, default lookups include global DNA plus the
+current agent's local/project DNA. Use --include-other-agents (alias: --all-agents)
+to inspect other agents' local DNA explicitly.
 Use 'dna show dna://${opts.type}/<slug>' for cross-type details + edges.
 Add new entries by dropping a .dna file with 'type: ${opts.type}' frontmatter
 into ~/.openclaw/.dna/${opts.type === "philosophy" ? "philosophies" : opts.type === "convention" ? "conventions" : opts.type === "protocol" ? "protocols" : opts.type + "s"}/`;
 
-  return async function main(args: string[]) {
+  return async function main(rawArgs: string[]) {
+    const args = rawArgs.filter((arg) => arg !== "--include-other-agents" && arg !== "--all-agents");
+    if (args.length !== rawArgs.length) process.env.DNA_INCLUDE_OTHER_AGENTS_LOCAL = "1";
+
     if (!args.length || args[0] === "--help" || args[0] === "-h") {
       console.log(HELP);
       return;
