@@ -1308,17 +1308,28 @@ function cmdFind(args: string[]) {
 
 /** Resolve "main" / "me" / "dna://agent/main" to the current agent's id.
  * Detection priority:
- *   1. Env var DNA_AGENT_ID
- *   2. Walk up from cwd looking for dna.yml/dna.yaml with type: agent
- *   3. Error
+ *   1. Env var AGENT_ID (injected by the OpenClaw DNA plugin for CLI calls)
+ *   2. Env var DNA_AGENT_ID (legacy/explicit override)
+ *   3. Walk up from cwd looking for dna.yml/dna.yaml with type: agent
+ *   4. Error
  * Returns { id, path, source } or throws.
  */
 function resolveAgentMain(): { id: string; path: string; source: string } {
-  // 1. Env var
-  if (process.env.DNA_AGENT_ID) {
-    return { id: process.env.DNA_AGENT_ID, path: "(env)", source: "DNA_AGENT_ID env var" };
+  // 1. OpenClaw-injected agent identity
+  if (process.env.AGENT_ID) {
+    const id = process.env.AGENT_ID.startsWith("dna://")
+      ? process.env.AGENT_ID
+      : `dna://agent/${process.env.AGENT_ID}`;
+    return { id, path: "(env)", source: "AGENT_ID env var" };
   }
-  // 2. Walk up from cwd
+  // 2. Legacy/explicit env var
+  if (process.env.DNA_AGENT_ID) {
+    const id = process.env.DNA_AGENT_ID.startsWith("dna://")
+      ? process.env.DNA_AGENT_ID
+      : `dna://agent/${process.env.DNA_AGENT_ID}`;
+    return { id, path: "(env)", source: "DNA_AGENT_ID env var" };
+  }
+  // 3. Walk up from cwd
   let dir = process.cwd();
   for (let i = 0; i < 20; i++) {
     for (const fname of ["dna.yml", "dna.yaml"]) {
@@ -1338,7 +1349,7 @@ function resolveAgentMain(): { id: string; path: string; source: string } {
     if (parent === dir) break;
     dir = parent;
   }
-  throw new Error("Cannot resolve dna://agent/main - set DNA_AGENT_ID or run from an agent workspace");
+  throw new Error("Cannot resolve dna://agent/main - set AGENT_ID/DNA_AGENT_ID or run from an agent workspace");
 }
 
 /** Expand magic aliases: "main", "me", "dna://agent/main" → actual agent id */
