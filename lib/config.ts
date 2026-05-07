@@ -49,12 +49,50 @@ export interface DistillConfig {
   exclude_globs?: string[];
 }
 
+/**
+ * Module declarations — opt-in knowledge subcommands.
+ *
+ * A fresh DNA install has zero modules enabled. Users declare which
+ * knowledge modules they want in dna.config.yaml under `modules:`.
+ *
+ * Each entry maps a subcommand name to its config.
+ * Reserved built-in module names: philosophy, convention, protocol, flow, spec
+ *
+ * Example dna.config.yaml:
+ *   modules:
+ *     philosophy:
+ *       label: Philosophy
+ *       emoji: "\U0001F9EC"
+ *     convention:
+ *       label: Convention
+ *     protocol:
+ *       label: Protocol
+ *     flow:
+ *       label: Flow
+ *     spec:
+ *       label: Spec
+ */
+export interface ModuleConfig {
+  /** Display label (defaults to capitalized module name). */
+  label?: string;
+  /** Emoji for headers. */
+  emoji?: string;
+  /** Mesh node type override (defaults to module name). */
+  type?: string;
+  /** Inject block marker override (defaults to UPPERCASE(name)). */
+  inject_marker?: string;
+}
+
+export type ModulesConfig = Record<string, ModuleConfig>;
+
 export interface DnaConfig {
   types: Record<string, TypeDef>;
   presets: Record<string, PresetDef>;
   verbs: Record<string, VerbDef>;
   integrations: Record<string, IntegrationDef>;
   distill?: DistillConfig;
+  /** Opt-in knowledge modules. Empty by default — declare in dna.config.yaml to enable. */
+  modules?: ModulesConfig;
 }
 
 // ─── Built-in MINIMAL defaults ────────────────────────────────────────
@@ -203,4 +241,14 @@ export function presetAllowedTypes(cfg: DnaConfig, presetId: string): Set<string
     }
   }
   return allowed;
+}
+
+/**
+ * Check whether a knowledge module is enabled in config.
+ * Returns the merged ModuleConfig if enabled, null if not.
+ */
+export function getModule(cfg: DnaConfig, name: string): ModuleConfig | null {
+  const m = cfg.modules?.[name];
+  if (!m) return null;
+  return m;
 }

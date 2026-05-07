@@ -15,6 +15,7 @@ export default defineConfig({
     "scripts/hydrate-cli.ts",
     "scripts/injection-cli.ts",
     "scripts/remote-cli.ts",
+    "scripts/module-check-cli.ts",
   ],
   outDir: "dist/scripts",
   format: "esm",

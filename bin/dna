@@ -36,28 +36,41 @@ fi
 subcmd="${1:-help}"
 shift 2>/dev/null
 
+# ── Module guard helper ───────────────────────────────────────────────
+# Usage: require_module <name> — exits with error if module not declared in config
+require_module() {
+  "$TSX" "$SCRIPTS/module-check-cli.$EXT" "$1" || exit 1
+}
+
 case "$subcmd" in
   spec)
+    require_module spec
     exec "$TSX" "$SCRIPTS/spec-cli.$EXT" "$@"
     ;;
   philosophy)
+    require_module philosophy
     exec "$TSX" "$SCRIPTS/philosophy-cli.$EXT" "$@"
     ;;
   convention)
+    require_module convention
     exec "$TSX" "$SCRIPTS/convention-cli.$EXT" "$@"
     ;;
   protocol)
+    require_module protocol
     exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   architecture)
     echo "⚠️  'dna architecture' renamed to 'dna protocol'. Update your scripts." >&2
+    require_module protocol
     exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   workflow)
     echo "⚠️  'dna workflow' renamed to 'dna protocol'. Update your scripts." >&2
+    require_module protocol
     exec "$TSX" "$SCRIPTS/protocol-cli.$EXT" "$@"
     ;;
   flow)
+    require_module flow
     exec "$TSX" "$SCRIPTS/flow-cli.$EXT" "$@"
     ;;
   search)
@@ -130,6 +143,9 @@ case "$subcmd" in
   remote)
     exec "$TSX" "$SCRIPTS/remote-cli.$EXT" "$@"
     ;;
+  module-check)
+    exec "$TSX" "$SCRIPTS/module-check-cli.$EXT" "$@"
+    ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
     mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/protocols" "$DATA_DIR/flows" "$DATA_DIR/injections"
@@ -145,11 +161,11 @@ case "$subcmd" in
     echo ""
     echo "Subcommands:"
     echo "  init          Initialize data directory"
-    echo "  spec          GBTD spec operations"
-    echo "  philosophy    Philosophy database"
-    echo "  convention    Convention rules — global & local"
-    echo "  protocol      Protocol paradigms — git/CI/deploy levels"
-    echo "  flow          Flow procedures — global & local"
+    echo "  spec          GBTD spec operations             (requires modules.spec in config)"
+    echo "  philosophy    Philosophy database               (requires modules.philosophy in config)"
+    echo "  convention    Convention rules                  (requires modules.convention in config)"
+    echo "  protocol      Protocol paradigms                (requires modules.protocol in config)"
+    echo "  flow          Flow procedures                   (requires modules.flow in config)"
     echo "  search        Semantic search over the mesh (local ONNX embeddings)"
     echo "  distill       Semantic dedup / knowledge distillation audit"
     echo "  mesh          Graph queries over distributed dna files (scan/show/links/refs/impact/lint)"
