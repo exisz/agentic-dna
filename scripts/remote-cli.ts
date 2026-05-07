@@ -220,32 +220,54 @@ function cmdRemove(args: string[]): void {
 async function cmdInject(args: string[]): Promise<void> {
   const raw = args[0];
   if (!raw) {
-    console.error("Usage: dna remote --inject <id>[#section]");
+    console.error("Usage: dna remote --inject <url>[#section] | <id>[#section]");
     process.exit(1);
   }
+
+  // Split fragment (#section) from url or id
   const hashIdx = raw.indexOf("#");
-  const id = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
+  const ref = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
   const section = hashIdx >= 0 ? raw.slice(hashIdx + 1) : null;
 
-  const reg = loadRegistry();
-  const entry = findEntry(reg, id);
-  if (!entry) {
-    console.error("Remote not found: " + id + ". Register with: dna remote add " + id + " <url>");
-    process.exit(1);
-  }
-
   let content: string;
-  try {
-    content = await ensureCached(entry);
-  } catch (e: any) {
-    console.error("Failed to fetch " + id + ": " + e.message);
-    process.exit(1);
+
+  if (ref.startsWith("http://") || ref.startsWith("https://")) {
+    // Direct URL — fetch (use cache keyed by URL)
+    const cacheKey = "url_" + ref.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cachePath = join(CACHE_DIR, cacheKey + ".md");
+    mkdirSync(CACHE_DIR, { recursive: true });
+    if (existsSync(cachePath)) {
+      content = readFileSync(cachePath, "utf-8");
+    } else {
+      try {
+        content = await fetchUrl(ref);
+        writeFileSync(cachePath, content, "utf-8");
+      } catch (e: any) {
+        console.error("Failed to fetch " + ref + ": " + e.message);
+        process.exit(1);
+      }
+    }
+  } else {
+    // Named ID from registry
+    const reg = loadRegistry();
+    const entry = findEntry(reg, ref);
+    if (!entry) {
+      console.error("Remote not found: '" + ref + "'. Register with: dna remote add " + ref + " <url>");
+      console.error("Or use a direct URL: dna remote --inject https://...");
+      process.exit(1);
+    }
+    try {
+      content = await ensureCached(entry);
+    } catch (e: any) {
+      console.error("Failed to fetch " + ref + ": " + e.message);
+      process.exit(1);
+    }
   }
 
   if (section) {
     const extracted = extractSection(content, section);
     if (!extracted) {
-      console.error("Section '" + section + "' not found in remote '" + id + "'");
+      console.error("Section '" + section + "' not found in '" + ref + "'");
       process.exit(1);
     }
     process.stdout.write(extracted + "\n");
@@ -258,23 +280,25 @@ function printHelp(): void {
   console.log(`DNA Remote — manage remote Markdown URL registry
 
 Usage:
-  dna remote add <id> <url> [desc]   Register a remote Markdown URL
-  dna remote list                    List registered remotes
-  dna remote fetch [<id>]            Re-fetch and update cache (all if no id)
-  dna remote remove <id>             Unregister a remote
-  dna remote --inject <id>           Print full content (used in directives)
-  dna remote --inject <id>#<section> Print a single section by heading slug
+  dna remote add <id> <url> [desc]         Register a named alias for a URL
+  dna remote list                          List registered aliases
+  dna remote fetch [<id>]                  Re-fetch and update cache
+  dna remote remove <id>                   Unregister an alias
+  dna remote --inject <url>[#section]      Inject by direct URL (primary usage)
+  dna remote --inject <id>[#section]       Inject by registered alias
 
 Directive usage in workspace files:
-  {{dna remote --inject openclaw-agents}}
-  {{dna remote --inject openclaw-agents#safety}}
+  {{dna remote --inject https://raw.githubusercontent.com/openclaw/openclaw/main/docs/reference/templates/AGENTS.md#red-lines}}
+  {{dna remote --inject https://raw.githubusercontent.com/.../AGENTS.md}}
+  {{dna remote --inject my-alias#some-section}}
+
+URL vs alias:
+  Direct URL is the canonical form — self-documenting, no registry needed.
+  Aliases (dna remote add) are optional shortcuts for long URLs you reuse often.
+  Both support #section fragment to extract a single heading section.
 
 Registry: ${REGISTRY_PATH}
 Cache:     ${CACHE_DIR}/
-
-Example — register OpenClaw official workspace templates:
-  dna remote add openclaw-agents https://raw.githubusercontent.com/openclaw/openclaw/main/docs/reference/templates/AGENTS.md
-  dna remote add openclaw-soul   https://raw.githubusercontent.com/openclaw/openclaw/main/docs/reference/templates/SOUL.md
 `);
 }
 
