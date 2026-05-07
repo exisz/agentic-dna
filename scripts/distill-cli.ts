@@ -16,6 +16,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { buildGraph } from "./mesh-cli.ts";
 import { DNA_DATA, HOME, parseFrontmatter, workspaceFromCwd } from "../lib/common.ts";
 import { buildEmbedText, contentHashOf, cosineSim, embed } from "../lib/embeddings.ts";
+import { loadConfig } from "../lib/config.ts";
 
 const DISTILL_INDEX_PATH = join(DNA_DATA, ".distill-embeddings.json");
 const MAX_DEPTH = 10;
@@ -179,6 +180,40 @@ function globToRegex(pattern: string): RegExp {
   return new RegExp(out);
 }
 
+// excludeGlobToRegex: like globToRegex but "**/" prefix = suffix-match anywhere in abs path.
+// Special regex chars list (as char codes): dot=46 plus=43 caret=94 dollar=36 openBrace=123
+// closeBrace=125 openParen=40 closeParen=41 pipe=124 openBracket=91 closeBracket=93 backslash=92
+const REGEX_SPECIALS = new Set([
+  46, 43, 94, 36, 123, 125, 40, 41, 124, 91, 93, 92,
+]);
+
+function excludeGlobToRegex(pattern: string): RegExp {
+  if (!pattern.startsWith("**/")) return globToRegex(pattern);
+  const suffix = pattern.slice(3);
+  let re = "";
+  let i = 0;
+  while (i < suffix.length) {
+    const c = suffix[i];
+    const next = suffix[i + 1];
+    if (c === "*" && next === "*") {
+      re += ".*"; i += 2; continue;
+    }
+    if (c === "*") {
+      re += "[^/]*"; i++; continue;
+    }
+    if (c === "?") {
+      re += "[^/]"; i++; continue;
+    }
+    if (REGEX_SPECIALS.has(c.charCodeAt(0))) {
+      re += "\\" + c;
+    } else {
+      re += c;
+    }
+    i++;
+  }
+  return new RegExp("(?:^|/)" + re + "(?:/|$)");
+}
+
 function staticGlobRoot(pattern: string): string {
   const abs = expandPath(pattern);
   const wildcard = abs.search(/[\*\?\{]/);
@@ -277,6 +312,8 @@ interface CollectOptions {
   scope: "cwd" | "global";
   roots?: string[];
   globs?: string[];
+  /** Extra exclude globs merged with dna.config.yaml distill.exclude_globs. */
+  excludeGlobs?: string[];
 }
 
 function collectArtifacts(opts: CollectOptions): Artifact[] {
@@ -306,6 +343,13 @@ function collectArtifacts(opts: CollectOptions): Artifact[] {
     });
   }
 
+  const cfg = loadConfig();
+  const excludePatterns: string[] = [
+    ...(cfg.distill?.exclude_globs || []),
+    ...(opts.excludeGlobs || []),
+  ];
+  const excludeRegexes = excludePatterns.map(excludeGlobToRegex);
+
   const mdFiles = new Set<string>();
   for (const root of scanRoots(opts.scope, opts.roots || [])) {
     for (const md of walk(root)) mdFiles.add(md);
@@ -313,6 +357,8 @@ function collectArtifacts(opts: CollectOptions): Artifact[] {
   for (const md of markdownFilesFromGlobs(opts.globs || [])) mdFiles.add(md);
 
   for (const md of mdFiles) {
+    // Skip files matching exclude globs.
+    if (excludeRegexes.length && excludeRegexes.some((re) => re.test(md.replace(/\\/g, "/")))) continue;
     // Frontmatter mesh Markdown is represented as DNA above; avoid comparing it to itself.
     if (meshPaths.has(resolve(md))) continue;
     artifacts.push(...splitMarkdown(md));
@@ -429,8 +475,9 @@ async function cmdScan(args: string[]): Promise<void> {
   const scope = (flagArg(args, "--scope") === "cwd" ? "cwd" : "global") as "cwd" | "global";
   const roots = flagArgs(args, "--root");
   const globs = flagArgs(args, "--glob");
+  const excludeGlobs = flagArgs(args, "--exclude");
 
-  const artifacts = collectArtifacts({ scope, roots, globs });
+  const artifacts = collectArtifacts({ scope, roots, globs, excludeGlobs });
   const vectors = await vectorsFor(artifacts, quiet);
   const findings = buildFindings(artifacts, vectors, threshold, top);
 
@@ -465,13 +512,14 @@ async function cmdGuard(args: string[]): Promise<void> {
   const quiet = asJson || flagBool(args, "--quiet");
   const roots = flagArgs(args, "--root");
   const globs = flagArgs(args, "--glob");
-  const query = stripFlags(args, { "--top": true, "--json": false, "--quiet": false, "--root": true, "--glob": true }).join(" ").trim();
+  const excludeGlobs = flagArgs(args, "--exclude");
+  const query = stripFlags(args, { "--top": true, "--json": false, "--quiet": false, "--root": true, "--glob": true, "--exclude": true }).join(" ").trim();
   if (!query) {
     console.error("Usage: dna distill guard <concept> [--top N] [--json]");
     process.exit(1);
   }
 
-  const artifacts = collectArtifacts({ scope: "global", roots, globs });
+  const artifacts = collectArtifacts({ scope: "global", roots, globs, excludeGlobs });
   const vectors = await vectorsFor(artifacts, quiet);
   const qVec = await embed(query);
   const ranked = artifacts.map((a) => ({ a, score: cosineSim(qVec, vectors.get(a.id) || []) }))
@@ -508,14 +556,16 @@ function printHelp(): void {
   console.log(`🧬 DNA Distill — semantic dedup / knowledge distillation audit
 
 Usage:
-  dna distill scan [--threshold 0.82] [--top 30] [--scope global|cwd] [--root PATH...] [--glob PATTERN...] [--json]
-  dna distill guard <concept> [--top 8] [--root PATH...] [--glob PATTERN...] [--json]
+  dna distill scan [--threshold 0.82] [--top 30] [--scope global|cwd] [--root PATH...] [--glob PATTERN...] [--exclude PATTERN...] [--json]
+  dna distill guard <concept> [--top 8] [--root PATH...] [--glob PATTERN...] [--exclude PATTERN...] [--json]
 
 Corpus range:
   default              Global OpenClaw corpus: workspaces + realms + DNA roots
   --scope cwd          Current workspace only
   --root ~/.openclaw   Add/replace an explicit recursive root; repeatable
   --glob '**/*.md'     Add Markdown glob range; repeatable
+  --exclude '**/qa/**' Exclude glob; repeatable; merged with dna.config.yaml distill.exclude_globs
+                       Default exclusions (from config): **/memory/**
 
 Dedup classes:
   dna-markdown        Markdown repeats canonical DNA → replace prose with pointer/injection

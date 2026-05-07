@@ -44,11 +44,17 @@ export interface IntegrationDef {
   [key: string]: any;
 }
 
+export interface DistillConfig {
+  /** Glob patterns to exclude from distill scan corpus (relative or absolute, supports ** globs). */
+  exclude_globs?: string[];
+}
+
 export interface DnaConfig {
   types: Record<string, TypeDef>;
   presets: Record<string, PresetDef>;
   verbs: Record<string, VerbDef>;
   integrations: Record<string, IntegrationDef>;
+  distill?: DistillConfig;
 }
 
 // ─── Built-in MINIMAL defaults ────────────────────────────────────────
@@ -56,6 +62,12 @@ export interface DnaConfig {
 const BUILTIN_DEFAULTS: DnaConfig = {
   types: {
     // No hardcoded types — every type string gets auto-colored on demand.
+  },
+  distill: {
+    // Default: skip all memory directories (ephemeral — daily logs, dreaming, not persistent truth)
+    exclude_globs: [
+      "**/memory/**",
+    ],
   },
   presets: {
     all: {
