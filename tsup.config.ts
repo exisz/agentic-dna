@@ -14,6 +14,7 @@ export default defineConfig({
     "scripts/skill-cli.ts",
     "scripts/hydrate-cli.ts",
     "scripts/injection-cli.ts",
+    "scripts/remote-cli.ts",
   ],
   outDir: "dist/scripts",
   format: "esm",

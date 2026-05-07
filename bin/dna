@@ -127,6 +127,9 @@ case "$subcmd" in
   injection)
     exec "$TSX" "$SCRIPTS/injection-cli.$EXT" "$@"
     ;;
+  remote)
+    exec "$TSX" "$SCRIPTS/remote-cli.$EXT" "$@"
+    ;;
   init)
     DATA_DIR="${DNA_DATA:-$HOME/.agentic-dna}"
     mkdir -p "$DATA_DIR/philosophies" "$DATA_DIR/conventions" "$DATA_DIR/protocols" "$DATA_DIR/flows" "$DATA_DIR/injections"
@@ -154,6 +157,7 @@ case "$subcmd" in
     echo "  skill         Manual skill operations"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
     echo "  injection     Prompt injection files"
+    echo "  remote        Remote Markdown registry — inject official templates via {{dna remote --inject}}"
     echo "  ui            Launch mesh visualization dashboard (http://localhost:4893)"
     echo ""
     echo "Mesh queries (shortcuts — all delegate to dna mesh):"
