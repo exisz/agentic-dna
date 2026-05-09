@@ -6,5 +6,6 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   clean: true,
+  noExternal: ["@sinclair/typebox"],
   external: ["openclaw", "openclaw/plugin-sdk/core"],
 });
