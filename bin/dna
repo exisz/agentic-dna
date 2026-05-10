@@ -134,6 +134,9 @@ case "$subcmd" in
   hydrate)
     exec "$TSX" "$SCRIPTS/hydrate-cli.$EXT" "$@"
     ;;
+  model)
+    exec "$TSX" "$SCRIPTS/model-cli.$EXT" "$@"
+    ;;
   ui)
     exec "$TSX" "$SCRIPTS/ui-cli.$EXT" "$@"
     ;;
@@ -172,6 +175,7 @@ case "$subcmd" in
     echo "  tool          Toolbox: invoke registered CLIs"
     echo "  skill         Manual skill operations"
     echo "  hydrate       Pre-render {{dna}} directives in workspace files"
+    echo "  model         Injection-time model selection helpers"
     echo "  injection     Prompt injection files"
     echo "  remote        Remote Markdown registry — inject official templates via {{dna remote --inject}}"
     echo "  ui            Launch mesh visualization dashboard (http://localhost:4893)"

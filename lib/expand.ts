@@ -106,8 +106,12 @@ function runDnaCli(args: string, logger: Logger): string {
  * Expand a single directive match into rendered output.
  */
 function expandDirective(args: string, logger: Logger): string {
-  const trimmedArgs = args.trim();
+  let trimmedArgs = args.trim();
   if (!trimmedArgs) return "<!-- [dna()] empty directive -->";
+
+  const raw = trimmedArgs.startsWith("--raw ");
+  if (raw) trimmedArgs = trimmedArgs.slice("--raw ".length).trim();
+  if (!trimmedArgs) return "<!-- [dna --raw] empty directive -->";
 
   const output = runDnaCli(trimmedArgs, logger);
 
@@ -125,6 +129,8 @@ function expandDirective(args: string, logger: Logger): string {
     );
   }
 
+  if (raw) return finalOutput;
+
   const safeLabel = trimmedArgs.replace(/\s+/g, " ");
   return `«dna:${safeLabel}»\n\n${finalOutput}`;
 }
@@ -134,8 +140,12 @@ function expandDirective(args: string, logger: Logger): string {
  *
  * Directives inside fenced code blocks (```) and inline code (`) are preserved as-is.
  */
-export function expandDnaDirectives(content: string, logger: Logger): string {
+export function expandDnaDirectives(content: string, logger: Logger, depth = 0, maxDepth = 2): string {
   if (!content.includes("{{dna ")) return content;
+  if (depth > maxDepth) {
+    logger.warn?.(`dna expansion max depth ${maxDepth} reached; leaving nested directives unexpanded`);
+    return content;
+  }
 
   // Protect fenced code blocks
   const codeBlocks: string[] = [];
@@ -163,6 +173,14 @@ export function expandDnaDirectives(content: string, logger: Logger): string {
   }
   for (let i = 0; i < inlineCodes.length; i++) {
     result = result.replace(`\x00INLINE${i}\x00`, inlineCodes[i]);
+  }
+
+  // Propagate hydration into injected DNA content, but keep it bounded so a
+  // recursive directive cannot spin forever. This lets a workspace hydrate pull
+  // in a DNA entry whose body contains its own small dynamic placeholders, while
+  // keeping mesh/index/search as static knowledge operations.
+  if (depth < maxDepth && result.includes("{{dna ")) {
+    return expandDnaDirectives(result, logger, depth + 1, maxDepth);
   }
 
   return result;
