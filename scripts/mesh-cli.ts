@@ -20,7 +20,7 @@
  *   (alias: --all-agents) to inspect other agents' local DNA explicitly.
  */
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join, basename, dirname, relative } from "node:path";
 import yaml from "js-yaml";
@@ -464,6 +464,12 @@ function walkForCandidates(root: string, depth = 0): string[] {
       } else if (name.endsWith(".dna.yml")) {
         // Pure YAML shadow nodes (migrated from .dna.md)
         out.push(full);
+      } else if (name.endsWith(".dna.py")) {
+        // Dynamic DNA node: trusted local executable that renders a normal .dna
+        // document to stdout. Used for injection-time policy materialization
+        // (e.g. subagent model selection) so agents receive a concrete value,
+        // not stale prose or an instruction to call another tool later.
+        out.push(full);
       } else if (name.endsWith(".dna")) {
         // New unified extension: pure YAML or YAML frontmatter + markdown body
         out.push(full);
@@ -562,10 +568,24 @@ const LEGACY_GOV_DIR_TYPE_HINT: Record<string, string> = {
  */
 function parseFile(path: string, lint: MeshGraph["lint"]): MeshNode | null {
   let raw: string;
-  try { raw = readFileSync(path, "utf-8"); } catch { return null; }
+  try {
+    if (path.endsWith(".dna.py")) {
+      raw = execFileSync("python3", [path], {
+        encoding: "utf-8",
+        timeout: 5000,
+        maxBuffer: 1024 * 1024,
+        env: {
+          ...process.env,
+          DNA_RENDER_PATH: path,
+        },
+      });
+    } else {
+      raw = readFileSync(path, "utf-8");
+    }
+  } catch { return null; }
   const isMd = path.endsWith(".md");
   // .dna files: pure YAML OR frontmatter+markdown (auto-detect by leading `---`)
-  const isDna = path.endsWith(".dna");
+  const isDna = path.endsWith(".dna") || path.endsWith(".dna.py");
   const isDnaFrontmatter = isDna && raw.startsWith("---");
   let fields: Record<string, any>;
   let _body: string | undefined;
