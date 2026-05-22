@@ -141,7 +141,7 @@ function startManaged(port: number, openBrowserFlag: boolean) {
     "--env", `PORT=${port}`,
     "--env", "NODE_ENV=production",
     "--env", `DNA_DATA=${process.env.DNA_DATA || join(homedir(), ".openclaw", ".dna")}`,
-    "--health-cmd", `curl -fsS http://127.0.0.1:${port}/ >/dev/null`,
+    "--health-cmd", `/usr/bin/curl -fsS http://127.0.0.1:${port}/`,
     "--health-interval", "30",
     "--health-timeout", "5",
     "--health-max-failures", "3",
