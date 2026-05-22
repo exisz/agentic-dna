@@ -10,7 +10,7 @@ dna ui --port 5000    # custom port
 dna ui --stop         # stop the service
 dna ui --status       # process status
 dna ui --logs         # tail logs
-dna ui --install-service  # install oxmgr as a login service and register dna-ui
+dna ui --install-service  # install/register DNA UI under shared oxmgr daemon
 dna ui --foreground   # run inline (debugging, no daemon)
 ```
 
@@ -23,9 +23,11 @@ persistent installation that survives login/reboot, run:
 dna ui --install-service
 ```
 
-This installs oxmgr's platform service wrapper (launchd on macOS, systemd on
-Linux where supported), activates it, and registers `dna-ui` with absolute
-Node/tsx paths so it does not depend on an interactive shell `PATH`.
+This is a one-shot installer: it ensures the shared oxmgr platform daemon exists
+and is active, then registers `dna-ui` under that daemon. If oxmgr is already
+installed by another app, the same daemon/state is reused; no manual
+launchd/systemd setup is required. The `dna-ui` entry uses absolute Node/tsx
+paths so it does not depend on an interactive shell `PATH`.
 
 ## What it does
 
