@@ -14,6 +14,7 @@ export default defineConfig({
     "scripts/skill-cli.ts",
     "scripts/hydrate-cli.ts",
     "scripts/model-cli.ts",
+    "scripts/ui-cli.ts",
     "scripts/injection-cli.ts",
     "scripts/remote-cli.ts",
     "scripts/module-check-cli.ts",

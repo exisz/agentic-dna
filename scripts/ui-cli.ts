@@ -8,6 +8,7 @@
  *   dna ui --stop           Stop the running service
  *   dna ui --status         Show status
  *   dna ui --logs           Tail logs
+ *   dna ui --install-service Install oxmgr as a login service and register DNA UI
  *   dna ui --foreground     Run in foreground (no oxmgr) — useful for debugging
  *   dna ui --no-open        Don't open browser
  */
@@ -15,13 +16,16 @@ import { spawn, spawnSync, execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { platform } from "node:os";
+import { homedir, platform } from "node:os";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // repo root: scripts/ -> ../
 const REPO_ROOT = resolve(__dirname, "..");
 const GUI_DIR = join(REPO_ROOT, "gui");
 const SERVICE_NAME = "dna-ui";
+const OXMGR_JS = join(GUI_DIR, "node_modules", "oxmgr", "bin", "oxmgr.js");
+const TSX_CLI = join(GUI_DIR, "node_modules", "tsx", "dist", "cli.mjs");
+const SERVER_PATH = join(GUI_DIR, "src", "server.ts");
 
 function parseArgs(argv: string[]) {
   const args = {
@@ -29,6 +33,7 @@ function parseArgs(argv: string[]) {
     stop: false,
     status: false,
     logs: false,
+    installService: false,
     foreground: false,
     open: true,
     help: false,
@@ -38,6 +43,7 @@ function parseArgs(argv: string[]) {
     if (a === "--stop") args.stop = true;
     else if (a === "--status") args.status = true;
     else if (a === "--logs") args.logs = true;
+    else if (a === "--install-service") args.installService = true;
     else if (a === "--foreground" || a === "-f") args.foreground = true;
     else if (a === "--no-open") args.open = false;
     else if (a === "--help" || a === "-h") args.help = true;
@@ -56,6 +62,8 @@ Usage:
   dna ui --stop         Stop running service
   dna ui --status       Show service status
   dna ui --logs         Tail logs
+  dna ui --install-service
+                        Install oxmgr launchd service and register DNA UI
   dna ui --foreground   Run inline (Ctrl+C to exit)
   dna ui --no-open      Don't auto-open browser
 
@@ -81,7 +89,7 @@ function ensureGuiBuilt(): boolean {
 }
 
 function oxmgr(...argv: string[]): { code: number; out: string; err: string } {
-  const r = spawnSync("npx", ["--no-install", "oxmgr", ...argv], {
+  const r = spawnSync(process.execPath, [OXMGR_JS, ...argv], {
     cwd: GUI_DIR,
     encoding: "utf-8",
   });
@@ -107,8 +115,7 @@ function openBrowser(url: string) {
 
 function startForeground(port: number) {
   console.log(`🧬 Starting DNA UI at http://localhost:${port}  (foreground mode)`);
-  const tsx = join(GUI_DIR, "node_modules", ".bin", "tsx");
-  const r = spawnSync(tsx, [join(GUI_DIR, "src", "server.ts")], {
+  const r = spawnSync(process.execPath, [TSX_CLI, SERVER_PATH], {
     cwd: GUI_DIR,
     stdio: "inherit",
     env: { ...process.env, PORT: String(port), NODE_ENV: "production" },
@@ -124,29 +131,21 @@ function startManaged(port: number, openBrowserFlag: boolean) {
     return;
   }
 
-  const tsx = join(GUI_DIR, "node_modules", ".bin", "tsx");
-  const serverPath = join(GUI_DIR, "src", "server.ts");
-
-  const args = [
-    "start",
-    "--name", SERVICE_NAME,
-    "--cwd", GUI_DIR,
-    "--env", `PORT=${port}`,
-    "--env", "NODE_ENV=production",
-    "--restart", "on-failure",
-    "--",
-    tsx, serverPath,
-  ];
-  // oxmgr 'start' takes the command as positional; insert -- separator-friendly
-  // Actually oxmgr uses single <COMMAND> arg — so we wrap as a shell string
-  const cmdString = `"${tsx}" "${serverPath}"`;
+  // Use absolute node + tsx paths. launchd does not inherit an interactive
+  // shell PATH, so relying on `#!/usr/bin/env node` makes reboot recovery fail.
+  const cmdString = `"${process.execPath}" "${TSX_CLI}" "${SERVER_PATH}"`;
   const r = oxmgr(
     "start",
     "--name", SERVICE_NAME,
     "--cwd", GUI_DIR,
     "--env", `PORT=${port}`,
     "--env", "NODE_ENV=production",
-    "--restart", "on-failure",
+    "--env", `DNA_DATA=${process.env.DNA_DATA || join(homedir(), ".openclaw", ".dna")}`,
+    "--health-cmd", `curl -fsS http://127.0.0.1:${port}/ >/dev/null`,
+    "--health-interval", "30",
+    "--health-timeout", "5",
+    "--health-max-failures", "3",
+    "--restart", "always",
     cmdString,
   );
 
@@ -187,11 +186,40 @@ function status() {
 
 function logs() {
   // Stream logs (oxmgr log -f tails)
-  const child = spawn("npx", ["--no-install", "oxmgr", "log", SERVICE_NAME, "-f"], {
+  const child = spawn(process.execPath, [OXMGR_JS, "log", SERVICE_NAME, "-f"], {
     cwd: GUI_DIR,
     stdio: "inherit",
   });
   child.on("exit", (c) => process.exit(c ?? 0));
+}
+
+function installService(port: number) {
+  if (!ensureGuiBuilt()) process.exit(1);
+
+  const install = oxmgr("service", "install");
+  if (install.out) process.stdout.write(install.out);
+  if (install.err) process.stderr.write(install.err);
+  if (install.code !== 0) process.exit(install.code);
+
+  // On macOS, make the LaunchAgent active immediately. oxmgr prints startup
+  // instructions, but `dna ui --install-service` should be a complete one-shot.
+  if (platform() === "darwin") {
+    const uid = String(process.getuid?.() ?? "");
+    const plist = join(homedir(), "Library", "LaunchAgents", "io.oxmgr.daemon.plist");
+    spawnSync("launchctl", ["bootstrap", `gui/${uid}`, plist], { stdio: "ignore" });
+    spawnSync("launchctl", ["enable", `gui/${uid}/io.oxmgr.daemon`], { stdio: "ignore" });
+    spawnSync("launchctl", ["kickstart", "-k", `gui/${uid}/io.oxmgr.daemon`], { stdio: "ignore" });
+  }
+
+  // Register the UI itself with reboot-safe absolute paths. If it already
+  // exists, replace it so older PATH-dependent entries are repaired.
+  oxmgr("rm", SERVICE_NAME);
+  startManaged(port, false);
+
+  const doctor = oxmgr("doctor");
+  if (doctor.out) process.stdout.write(doctor.out);
+  if (doctor.err) process.stderr.write(doctor.err);
+  console.log(`\n✓ DNA UI service installed. Visit http://localhost:${port}`);
 }
 
 // ── main ──
@@ -201,6 +229,7 @@ if (args.help) { help(); process.exit(0); }
 if (args.stop) { stop(); process.exit(0); }
 if (args.status) { status(); /* exits */ }
 if (args.logs) { logs(); /* exits */ }
+if (args.installService) { installService(args.port); process.exit(0); }
 
 if (!ensureGuiBuilt()) process.exit(1);
 

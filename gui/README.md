@@ -10,8 +10,22 @@ dna ui --port 5000    # custom port
 dna ui --stop         # stop the service
 dna ui --status       # process status
 dna ui --logs         # tail logs
+dna ui --install-service  # install oxmgr as a login service and register dna-ui
 dna ui --foreground   # run inline (debugging, no daemon)
 ```
+
+## Reboot persistence
+
+`dna ui` is supervised by [oxmgr](https://www.npmjs.com/package/oxmgr). For a
+persistent installation that survives login/reboot, run:
+
+```bash
+dna ui --install-service
+```
+
+This installs oxmgr's platform service wrapper (launchd on macOS, systemd on
+Linux where supported), activates it, and registers `dna-ui` with absolute
+Node/tsx paths so it does not depend on an interactive shell `PATH`.
 
 ## What it does
 
