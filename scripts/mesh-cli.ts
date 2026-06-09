@@ -498,13 +498,43 @@ function agentLocalOwnerSlug(path: string): string | null {
   const workspacesPrefix = join(HOME, ".openclaw/workspaces") + "/";
   if (path.startsWith(workspacesPrefix)) {
     const rest = path.slice(workspacesPrefix.length);
-    return rest.split("/")[0] || null;
+    const folder = rest.split("/")[0] || null;
+    if (!folder) return null;
+    // Prefer the workspace's declared agent id (dna.yaml `id` field) over the
+    // folder name, so workspaces like `lexis/` owned by agent `yellow` resolve
+    // correctly when AGENT_ID=yellow. Falls back to folder name when absent.
+    const declared = workspaceAgentSlugFromDnaYaml(join(HOME, ".openclaw/workspaces", folder));
+    return declared || folder;
   }
 
   const mainWorkspacePrefix = join(HOME, ".openclaw/workspace") + "/";
   if (path.startsWith(mainWorkspacePrefix)) return "claw";
 
   return null;
+}
+
+const _workspaceAgentSlugCache = new Map<string, string | null>();
+function workspaceAgentSlugFromDnaYaml(workspaceDir: string): string | null {
+  if (_workspaceAgentSlugCache.has(workspaceDir)) {
+    return _workspaceAgentSlugCache.get(workspaceDir)!;
+  }
+  let slug: string | null = null;
+  for (const fname of ["dna.yaml", "dna.yml"]) {
+    const fpath = join(workspaceDir, fname);
+    if (!existsSync(fpath)) continue;
+    try {
+      const raw = readFileSync(fpath, "utf-8");
+      const fields: any = yaml.load(raw) || {};
+      if (fields && typeof fields === "object" && fields.type === "agent" && typeof fields.id === "string") {
+        slug = fields.id.replace(/^dna:\/\/agent\//, "");
+        break;
+      }
+    } catch {
+      // ignore malformed dna.yaml — fall back to folder name
+    }
+  }
+  _workspaceAgentSlugCache.set(workspaceDir, slug);
+  return slug;
 }
 
 function filterOtherAgentLocalCandidates(paths: string[], opts: BuildGraphOptions = {}): string[] {
@@ -1419,12 +1449,30 @@ function expandId(id: string): string {
   return id;
 }
 
-function cmdWhoami() {
+function agentSlugFromId(id: string): string {
+  return id.replace(/^dna:\/\/agent\//, "");
+}
+
+function cmdWhoami(args: string[] = []) {
   try {
     const { id, path, source } = resolveAgentMain();
+    if (args.includes("--id") || args.includes("--slug")) {
+      console.log(agentSlugFromId(id));
+      return;
+    }
+    if (args.includes("--uri")) {
+      console.log(id);
+      return;
+    }
+    if (args.includes("--json")) {
+      console.log(JSON.stringify({ id: agentSlugFromId(id), uri: id, path, source }, null, 2));
+      return;
+    }
     console.log(`🧬 dna://agent/main → ${id}`);
     console.log(`   Path:   ${path}`);
     console.log(`   Source: ${source}`);
+    console.log(`   ID:     ${agentSlugFromId(id)}`);
+    console.log(`\nUse 'dna whoami --id' for script-friendly output.`);
   } catch (e: any) {
     console.error(`❌ ${e.message}`);
     process.exit(1);
@@ -3475,7 +3523,7 @@ switch (subcmd) {
   case "scan":            cmdScan(); break;
   case "ls":              rest[0] === "remote" ? cmdLsRemote() : cmdLs(rest); break;
   case "find":            cmdFind(rest); break;
-  case "whoami":          cmdWhoami(); break;
+  case "whoami":          cmdWhoami(rest); break;
   case "show":            await cmdShow(rest); break;
   case "links":           cmdLinks(rest); break;
   case "refs":            cmdRefs(rest); break;

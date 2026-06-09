@@ -42,7 +42,18 @@ function typedSearchableEntries(type: string) {
 
 function findEntry(type: string, slug: string) {
   const entries = typedSearchableEntries(type);
-  return entries.find((e) => (e.id as string).toLowerCase() === slug.toLowerCase());
+  const needle = slug.toLowerCase();
+  // Accept full URI (dna://flow/foo), the short slug (foo), or legacy_id alias.
+  const candidates = needle.startsWith("dna://")
+    ? [needle]
+    : [`dna://${type}/${needle}`, needle];
+  return entries.find((e) => {
+    const idLower = (e.id as string).toLowerCase();
+    if (candidates.includes(idLower)) return true;
+    const legacy = (e as any).legacy_id;
+    if (typeof legacy === "string" && legacy.toLowerCase() === needle) return true;
+    return false;
+  });
 }
 
 function cmdList(opts: TypedCliOptions) {
