@@ -32,11 +32,10 @@ importers:
         version: 4.21.0
 
   openclaw:
-    dependencies:
+    devDependencies:
       '@sinclair/typebox':
         specifier: ^0.34.49
         version: 0.34.49
-    devDependencies:
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)
