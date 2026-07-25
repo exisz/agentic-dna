@@ -21,7 +21,7 @@ Usage:
 Files live in:
   ${INJECTIONS_DIR}
 
-Each .md file uses frontmatter:
+Each .md or .dna file uses frontmatter:
   ---
   id: <slug>
   trigger: always | cron | interactive
@@ -39,13 +39,13 @@ interface Injection {
 function loadAll(): Injection[] {
   if (!existsSync(INJECTIONS_DIR)) return [];
   return readdirSync(INJECTIONS_DIR)
-    .filter((f) => f.endsWith(".md"))
+    .filter((f) => f.endsWith(".md") || f.endsWith(".dna"))
     .sort()
     .map((filename) => {
       const raw = readFileSync(join(INJECTIONS_DIR, filename), "utf-8");
       const { meta, body } = parseFrontmatter(raw);
       return {
-        id: (meta.id as string) || filename.replace(/\.md$/, ""),
+        id: (meta.id as string) || filename.replace(/\.(?:md|dna)$/, ""),
         trigger: (meta.trigger as string) || "always",
         title: meta.title as string | undefined,
         body,
