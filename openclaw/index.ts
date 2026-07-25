@@ -93,6 +93,17 @@ const plugin = {
       (event, ctx) => {
         if (event.toolName !== "exec") return {};
         if (!ctx.agentId) return {};
+        // Codex app-server exec calls use `cmd` and bind the exact parameter
+        // payload to their approval decision. Rewriting those params causes
+        // OpenClaw to reject the call. Keep AGENT_ID injection only for the
+        // legacy OpenClaw exec shape, which uses `command`.
+        if (
+          event.params &&
+          typeof event.params === "object" &&
+          "cmd" in event.params
+        ) {
+          return {};
+        }
 
         const prevEnv =
           event.params.env &&
