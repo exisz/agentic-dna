@@ -1,7 +1,11 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["index.ts", "tools/dna-philosophy.ts", "tools/dna-convention.ts"],
+  entry: {
+    "index-codex-safe": "index.ts",
+    "tools/dna-philosophy": "tools/dna-philosophy.ts",
+    "tools/dna-convention": "tools/dna-convention.ts",
+  },
   format: ["esm"],
   dts: false,
   sourcemap: true,

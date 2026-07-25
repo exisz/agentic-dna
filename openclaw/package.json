@@ -1,6 +1,6 @@
 {
   "name": "openclaw-dna",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "type": "module",
   "description": "DNA governance system — OpenClaw plugin for agentic-dna",
   "license": "Apache-2.0",
@@ -17,12 +17,12 @@
     "governance",
     "agent-framework"
   ],
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index-codex-safe.js",
+  "types": "./dist/index-codex-safe.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index-codex-safe.d.ts",
+      "import": "./dist/index-codex-safe.js"
     }
   },
   "files": [
@@ -41,7 +41,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./dist/index.js"
+      "./dist/index-codex-safe.js"
     ],
     "compat": {
       "pluginApi": ">=2026.3.28"

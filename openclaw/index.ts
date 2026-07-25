@@ -87,44 +87,6 @@ const plugin = {
   configSchema: { parse: () => ({}) },
 
   register(api: OpenClawPluginApi) {
-    // ── 0. Agent identity for CLI calls ──
-    api.on(
-      "before_tool_call",
-      (event, ctx) => {
-        if (event.toolName !== "exec") return {};
-        if (!ctx.agentId) return {};
-        // Codex app-server exec calls use `cmd` and bind the exact parameter
-        // payload to their approval decision. Rewriting those params causes
-        // OpenClaw to reject the call. Keep AGENT_ID injection only for the
-        // legacy OpenClaw exec shape, which uses `command`.
-        if (
-          event.params &&
-          typeof event.params === "object" &&
-          "cmd" in event.params
-        ) {
-          return {};
-        }
-
-        const prevEnv =
-          event.params.env &&
-          typeof event.params.env === "object" &&
-          !Array.isArray(event.params.env)
-            ? (event.params.env as Record<string, unknown>)
-            : {};
-
-        return {
-          params: {
-            ...event.params,
-            env: {
-              ...prevEnv,
-              AGENT_ID: ctx.agentId,
-            },
-          },
-        };
-      },
-      { priority: 100 },
-    );
-
     // ── 1. Prompt injection ──
     api.on(
       "before_prompt_build",
@@ -179,7 +141,7 @@ const plugin = {
     api.registerTool(createConventionTool());
 
     api.logger.info(
-      "openclaw-dna: registered (AGENT_ID exec injection + knowledge guide + cron policy + {{dna()}} expansion + tools)",
+      "openclaw-dna: registered (knowledge guide + cron policy + {{dna()}} expansion + tools)",
     );
   },
 };

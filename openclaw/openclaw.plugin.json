@@ -2,7 +2,7 @@
   "id": "openclaw-dna",
   "name": "DNA Governance System",
   "description": "Agentic DNA system — knowledge governance, cron/work policy, and {{dna(...)}} directive expansion.",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "skills": ["skills"],
   "contracts": {
     "tools": ["dna_philosophy", "dna_convention"]
