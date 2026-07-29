@@ -1,0 +1,35 @@
+{
+  "name": "agentic-dna",
+  "version": "0.1.0+codex.20260729015733",
+  "description": "Passively load OpenClaw workspace context and safely expand registered CLI directives in Codex.",
+  "author": {
+    "name": "Exis",
+    "url": "https://github.com/exisz"
+  },
+  "homepage": "https://github.com/exisz/agentic-dna/tree/main/codex",
+  "repository": "https://github.com/exisz/agentic-dna",
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "openclaw",
+    "agent-context",
+    "governance",
+    "hooks"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agentic DNA",
+    "shortDescription": "Load shared workspace identity, tools, and DNA into Codex.",
+    "longDescription": "Bridges OpenClaw-style workspaces into Codex at session start and expands safe, registered CLI directives without invoking a shell.",
+    "developerName": "Exis",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Show the workspace context Agentic DNA loaded.",
+      "Audit this workspace's DNA configuration.",
+      "Help me configure safe CLI directives."
+    ]
+  }
+}

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Codex plugin marketplace under `codex/`.
+- Passive `SessionStart` workspace-context hydration; subagents are deliberately
+  left untouched to avoid duplicated bootstrap context.
+- Safe registered-CLI directive expansion without shell evaluation.
+- Secret-aware bootstrap loading that excludes `MEMORY.md` by default.
+- Codex plugin tests, validation guidance, and publication documentation.
+
 ## [0.10.0] - 2026-05-03
 
 ### Changed (BREAKING-ish, but UX-positive)

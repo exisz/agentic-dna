@@ -1,0 +1,19 @@
+{
+  "description": "Load OpenClaw workspace context and DNA when a Codex session starts or compacts.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/session-start.mjs\"",
+            "timeout": 15,
+            "statusMessage": "Loading workspace DNA",
+            "additionalContextLimit": 6000
+          }
+        ]
+      }
+    ]
+  }
+}
