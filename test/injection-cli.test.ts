@@ -9,6 +9,9 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
+
+const dnaCli = fileURLToPath(new URL("../bin/dna", import.meta.url));
 
 describe("dna injection CLI", () => {
   let testHome = "";
@@ -50,7 +53,7 @@ describe("dna injection CLI", () => {
   });
 
   function dna(...args: string[]) {
-    return execFileSync("dna", args, {
+    return execFileSync(dnaCli, args, {
       encoding: "utf8",
       env: { ...process.env, HOME: testHome },
     });

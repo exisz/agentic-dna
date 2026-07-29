@@ -9,6 +9,11 @@ The plugin does nothing on `SubagentStart`. Subagents receive only the context
 their parent delegates, without another copy of workspace Markdown or DNA
 injections.
 
+On the main task, `UserPromptSubmit` can add one explicitly named DNA entity.
+It requires an exact DNA substring signal and ignores semantic-only matches, so
+mentioning `Dokploy` can load `dna://middleware/dokploy` without injecting the
+whole mesh.
+
 ## Layout
 
 ```text

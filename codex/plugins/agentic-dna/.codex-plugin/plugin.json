@@ -1,6 +1,6 @@
 {
   "name": "agentic-dna",
-  "version": "0.1.0+codex.20260729015733",
+  "version": "0.1.0+codex.20260729041132",
   "description": "Passively load OpenClaw workspace context and safely expand registered CLI directives in Codex.",
   "author": {
     "name": "Exis",

@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - Safe registered-CLI directive expansion without shell evaluation.
 - Secret-aware bootstrap loading that excludes `MEMORY.md` by default.
 - Codex plugin tests, validation guidance, and publication documentation.
+- Bounded main-task prompt lookup for explicitly named DNA entities, while
+  keeping subagents untouched.
+- Deterministic DNA CLI discovery for restricted Codex hook environments.
 
 ## [0.10.0] - 2026-05-03
 

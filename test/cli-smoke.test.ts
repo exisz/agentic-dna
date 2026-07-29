@@ -1,9 +1,11 @@
 import { describe, it } from 'node:test';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert';
 
+const dnaCli = fileURLToPath(new URL('../bin/dna', import.meta.url));
 const dna = (args: string[]) =>
-  execFileSync('dna', args, { encoding: 'utf-8', timeout: 15000 });
+  execFileSync(dnaCli, args, { encoding: 'utf-8', timeout: 15000 });
 
 describe('dna CLI smoke tests', () => {
   it('dna help exits 0', () => {

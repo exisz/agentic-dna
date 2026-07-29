@@ -10,9 +10,11 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert';
 
 let tmpDir: string;
+const dnaCli = fileURLToPath(new URL('../bin/dna', import.meta.url));
 
 before(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dna-test-'));
@@ -28,7 +30,7 @@ after(() => {
 });
 
 const dna = (args: string[], cwd?: string) => {
-  return execFileSync('dna', args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || process.cwd() });
+  return execFileSync(dnaCli, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || process.cwd() });
 };
 
 describe('legacy yaml string entries (slug references)', () => {

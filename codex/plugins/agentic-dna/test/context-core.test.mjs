@@ -5,8 +5,10 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import {
   compileWorkspaceContext,
+  containsSecret,
   expandDirectives,
   loadConfig,
+  pickPromptDnaMatch,
   splitArgs
 } from "../scripts/context-core.mjs";
 
@@ -32,12 +34,42 @@ test("loads OpenClaw bootstrap files but excludes MEMORY.md", () => {
   assert.doesNotMatch(result.context, /MEMORY\.md/);
 });
 
-test("does not register a SubagentStart hook", () => {
+test("registers main-thread hooks but no SubagentStart hook", () => {
   const hooks = JSON.parse(readFileSync(
     new URL("../hooks/hooks.json", import.meta.url),
     "utf8"
   ));
-  assert.deepEqual(Object.keys(hooks.hooks), ["SessionStart"]);
+  assert.deepEqual(
+    Object.keys(hooks.hooks),
+    ["SessionStart", "UserPromptSubmit"],
+  );
+  assert.equal(hooks.hooks.SubagentStart, undefined);
+});
+
+test("prompt DNA lookup accepts exact substring or explicit slug matches only", () => {
+  const exact = {
+    id: "dna://middleware/dokploy",
+    signals: { substring: 1, semantic: 0.2 },
+  };
+  const semanticOnly = {
+    id: "dna://middleware/qbittorrent",
+    signals: { substring: 0, semantic: 0.9 },
+  };
+  assert.equal(pickPromptDnaMatch([semanticOnly, exact]), exact);
+  assert.equal(pickPromptDnaMatch([semanticOnly]), null);
+  assert.equal(
+    pickPromptDnaMatch([exact], "把这个站点部署到 Dokploy"),
+    exact,
+  );
+  assert.equal(
+    pickPromptDnaMatch([semanticOnly], "deploy this site"),
+    null,
+  );
+});
+
+test("prompt DNA context allows environment variable references, not values", () => {
+  assert.equal(containsSecret("x-api-key: $DOKPLOY_API_KEY"), false);
+  assert.equal(containsSecret("api_key: actual-secret-value"), true);
 });
 
 test("expands a registered CLI without a shell", () => {

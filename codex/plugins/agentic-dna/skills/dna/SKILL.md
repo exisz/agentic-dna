@@ -13,6 +13,11 @@ The plugin deliberately registers no `SubagentStart` hook. Subagents inherit
 only the context their parent delegates; do not reload workspace Markdown or
 DNA injections for them.
 
+For the main task, a `UserPromptSubmit` hook performs one bounded DNA lookup.
+It injects at most one node and only when DNA reports an exact substring match
+for an entity explicitly named in the current prompt. Semantic-only matches are
+ignored to avoid speculative context.
+
 ## Workspace files
 
 Without configuration, the hook loads these files when present:
@@ -50,6 +55,10 @@ Generic registered CLI directives use:
 
 Only registered commands run. Commands execute without a shell; pipes,
 redirections, substitutions, and command separators are rejected.
+
+The bundled hook resolves the DNA executable from `DNA_CLI`, `PATH`, the
+repository CLI beside the Codex marketplace, and standard local binary
+locations, in that order.
 
 ## Validation
 

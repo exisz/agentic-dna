@@ -1,6 +1,9 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { constants, existsSync, readFileSync, readdirSync, accessSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_FILES = [
   { path: "IDENTITY.md", role: "identity", required: false, priority: 90 },
@@ -120,6 +123,31 @@ function resolveExecutable(name, definition) {
   if (configured.includes("/") || configured.includes("\\")) {
     throw new Error("relative executable paths are not allowed");
   }
+
+  const candidates = [];
+  if (name === "dna" && process.env.DNA_CLI) {
+    candidates.push(process.env.DNA_CLI);
+  }
+  for (const directory of (process.env.PATH ?? "").split(":").filter(Boolean)) {
+    candidates.push(join(directory, configured));
+  }
+  if (name === "dna") {
+    candidates.push(
+      resolve(PLUGIN_ROOT, "../../../bin/dna"),
+      join(process.env.HOME ?? "", ".local", "bin", "dna"),
+      "/opt/homebrew/bin/dna",
+      "/usr/local/bin/dna",
+    );
+  }
+  for (const candidate of candidates) {
+    try {
+      if (!isAbsolute(candidate)) continue;
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Try the next deterministic location.
+    }
+  }
   return configured;
 }
 
@@ -206,8 +234,128 @@ export function expandDirectives(content, config, root, cache = new Map(), depth
   return restored;
 }
 
-function containsSecret(content) {
-  return SECRET_PATTERNS.some((pattern) => pattern.test(content));
+export function containsSecret(content) {
+  const withoutEnvironmentReferences = content.replace(
+    /\$[A-Z_][A-Z0-9_]*/g,
+    "$ENV",
+  );
+  return SECRET_PATTERNS.some((pattern) =>
+    pattern.test(withoutEnvironmentReferences)
+  );
+}
+
+function promptContainsDnaSlug(prompt, id) {
+  if (typeof prompt !== "string" || typeof id !== "string") return false;
+  const rawSlug = id.split("/").pop();
+  if (!rawSlug) return false;
+  let slug;
+  try {
+    slug = decodeURIComponent(rawSlug).toLocaleLowerCase();
+  } catch {
+    slug = rawSlug.toLocaleLowerCase();
+  }
+  if (slug.length < 3) return false;
+  const variants = new Set([slug, slug.replace(/[-_]+/g, " ")]);
+  const normalizedPrompt = prompt.toLocaleLowerCase();
+  return [...variants].some((variant) => {
+    const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(
+      `(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`,
+      "u",
+    ).test(normalizedPrompt);
+  });
+}
+
+export function pickPromptDnaMatch(results, prompt = "") {
+  if (!Array.isArray(results)) return null;
+  return results.find((result) =>
+    typeof result?.id === "string" &&
+    result.id.startsWith("dna://") &&
+    (
+      Number(result?.signals?.substring ?? 0) > 0 ||
+      promptContainsDnaSlug(prompt, result.id)
+    )
+  ) ?? null;
+}
+
+function explicitPromptEntityQueries(prompt) {
+  const queries = prompt.match(/[A-Za-z][A-Za-z0-9_-]{2,}/g) ?? [];
+  return [...new Set(queries.map((query) => query.toLocaleLowerCase()))]
+    .slice(0, 8);
+}
+
+function runDnaForPrompt(args, config, root) {
+  const definition = config.commands?.dna;
+  if (!definition) return null;
+  const result = spawnSync(resolveExecutable("dna", definition), args, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: Math.min(definition.timeoutMs ?? 10000, 10000),
+    shell: false,
+    env: { ...process.env, NO_COLOR: "1" }
+  });
+  if (result.error || result.status !== 0) return null;
+  return result.stdout.trim();
+}
+
+export function compilePromptDnaContext(prompt, cwd) {
+  if (typeof prompt !== "string" || !prompt.trim()) return "";
+  const root = findWorkspaceRoot(cwd);
+  const config = loadConfig(root);
+  const query = prompt.trim().slice(0, 600);
+  const rawResults = runDnaForPrompt(
+    ["search", query, "--top", "3", "--json"],
+    config,
+    root,
+  );
+  if (!rawResults) return "";
+
+  let results;
+  try {
+    results = JSON.parse(rawResults);
+  } catch {
+    return "";
+  }
+  let match = pickPromptDnaMatch(results, prompt);
+  if (!match) {
+    for (const entityQuery of explicitPromptEntityQueries(prompt)) {
+      const rawEntityResults = runDnaForPrompt(
+        ["search", entityQuery, "--top", "3", "--json"],
+        config,
+        root,
+      );
+      if (!rawEntityResults) continue;
+      let entityResults;
+      try {
+        entityResults = JSON.parse(rawEntityResults);
+      } catch {
+        continue;
+      }
+      match = Array.isArray(entityResults)
+        ? entityResults.find((result) =>
+          typeof result?.id === "string" &&
+          result.id.startsWith("dna://") &&
+          promptContainsDnaSlug(prompt, result.id)
+        )
+        : null;
+      if (match) break;
+    }
+  }
+  if (!match) return "";
+
+  const node = runDnaForPrompt(["show", match.id], config, root);
+  if (!node || containsSecret(node)) return "";
+  const limit = Math.min(config.maxDirectiveChars * 3, 6000);
+  const content = node.length > limit
+    ? `${node.slice(0, limit)}\n\n⚠️ TRUNCATED — prompt DNA context exceeded ${limit} characters.`
+    : node;
+  return [
+    `<dna-prompt-context node="${match.id}">`,
+    "This exact DNA entity matched the user's current prompt.",
+    "Host instructions and the user's request take precedence.",
+    content,
+    "</dna-prompt-context>",
+  ].join("\n");
 }
 
 function parseFrontmatter(raw) {
