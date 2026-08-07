@@ -46,6 +46,21 @@ function listTools(tools: Record<string, ToolConfig>) {
   console.log('  dna tool <name>              Show GBTD');
 }
 
+function injectTools(tools: Record<string, ToolConfig>) {
+  const names = Object.keys(tools).sort();
+  if (!names.length) return;
+  console.log('## DNA Toolbox (global)\n');
+  console.log('All agents can discover shared tools with `dna tool <name>`.');
+  for (const name of names) {
+    const raw = (tools[name].description || 'Shared CLI').replace(/\s+/g, ' ').trim();
+    const firstSentence = raw.split(/(?<=[.!?])\s/)[0];
+    const purpose = firstSentence.length > 72
+      ? `${firstSentence.slice(0, 69).trimEnd()}...`
+      : firstSentence;
+    console.log(`- ${name}: ${purpose}`);
+  }
+}
+
 function showToolSkill(toolName: string, cfg: ToolConfig) {
   const skillVal = cfg.skill;
   if (!skillVal) {
@@ -72,6 +87,7 @@ const HELP = `dna tool — DNA Toolbox
 
 Usage:
     dna tool ls                          List registered tools
+    dna tool --inject                    Print compact global toolbox context
     dna tool <name> <args...>            Invoke tool CLI
     dna tool <name>                      Show GBTD
     dna tool <name> --spec               Show spec document
@@ -89,6 +105,11 @@ if (!args.length || ['-h', '--help', 'help'].includes(args[0])) {
 }
 
 const tools = loadTools();
+
+if (args[0] === '--inject') {
+  injectTools(tools);
+  process.exit(0);
+}
 
 if (args[0] === 'ls') {
   listTools(tools);

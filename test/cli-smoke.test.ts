@@ -25,6 +25,21 @@ describe('dna CLI smoke tests', () => {
     assert.ok(out.includes('Toolbox'));
   });
 
+  it('dna tool --inject emits compact global context including roblocks', () => {
+    const out = dna(['tool', '--inject']);
+    assert.match(out, /DNA Toolbox \(global\)/);
+    assert.match(out, /- roblocks: .*credential/i);
+    assert.ok(out.length < 2000, `tool injection should stay compact, got ${out.length} chars`);
+  });
+
+  it('base injection expands the toolbox directive', () => {
+    const base = `${process.env.HOME}/.openclaw/.dna/injections/base.dna`;
+    const out = dna(['hydrate', base, '--stdio']);
+    assert.match(out, /DNA Toolbox \(global\)/);
+    assert.match(out, /- roblocks: .*credential/i);
+    assert.doesNotMatch(out, /\{\{dna tool --inject\}\}/);
+  });
+
   it('dna distill help exits 0', () => {
     const out = dna(['distill', 'help']);
     assert.ok(out.includes('DNA Distill'));
