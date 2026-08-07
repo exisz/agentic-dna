@@ -54,13 +54,16 @@ jobs:
       - name: Build OpenClaw plugin
         run: cd openclaw && pnpm build
 
-      - name: Publish agentic-dna (CLI)
-        run: npm publish --access public
+      - name: Publish openclaw-dna (plugin)
+        run: cd openclaw && npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish openclaw-dna (plugin)
-        run: cd openclaw && npm publish --access public
+      # The CLI and plugin are separate npm packages. A registry/ownership
+      # problem with the CLI must not prevent the runtime plugin from shipping.
+      - name: Publish agentic-dna (CLI)
+        continue-on-error: true
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
