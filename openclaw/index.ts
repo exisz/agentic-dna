@@ -63,7 +63,7 @@ function loadInjections(): Injection[] {
     .filter(Boolean) as Injection[];
 }
 
-function getInjectionText(isCron: boolean): string {
+function getInjectionText(isCron: boolean, logger: OpenClawPluginApi["logger"]): string {
   const injections = loadInjections();
   const parts = injections
     .filter((inj) => {
@@ -74,7 +74,14 @@ function getInjectionText(isCron: boolean): string {
     })
     .map((inj) => inj.content);
   if (parts.length === 0) return "";
-  return `<openclaw-dna>\n${parts.join("\n\n")}\n</openclaw-dna>`;
+  // Injection files are not bootstrap files, so the agent:bootstrap hook never
+  // sees their directives. Expand here before appending system context; this is
+  // what makes global dynamic entries such as {{dna tool --inject}} visible to
+  // every interactive and cron agent.
+  return expandDnaDirectives(
+    `<openclaw-dna>\n${parts.join("\n\n")}\n</openclaw-dna>`,
+    logger,
+  );
 }
 
 // ─── Plugin Registration ────────────────────────────────────
@@ -92,7 +99,8 @@ const plugin = {
       "before_prompt_build",
       (_event, ctx) => {
         const isCron = ctx.trigger === "cron";
-        const injectable = getInjectionText(isCron);
+        clearCache();
+        const injectable = getInjectionText(isCron, api.logger);
         if (!injectable) return {};
         return { appendSystemContext: injectable };
       },
