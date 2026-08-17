@@ -33,6 +33,7 @@ const DNA_DATA = process.env.DNA_DATA || join(HOME, ".openclaw/.dna");
 interface Injection {
   id: string;
   trigger: "always" | "cron" | "interactive";
+  enabled: boolean;
   content: string;
 }
 
@@ -57,6 +58,7 @@ function loadInjections(): Injection[] {
       return {
         id: meta.id || f.replace(/\.md$/, ""),
         trigger: (meta.trigger || "always") as Injection["trigger"],
+        enabled: meta.enabled !== "false",
         content: body,
       };
     })
@@ -67,6 +69,7 @@ function getInjectionText(isCron: boolean, logger: OpenClawPluginApi["logger"]):
   const injections = loadInjections();
   const parts = injections
     .filter((inj) => {
+      if (!inj.enabled) return false;
       if (inj.trigger === "always") return true;
       if (inj.trigger === "cron") return isCron;
       if (inj.trigger === "interactive") return !isCron;
