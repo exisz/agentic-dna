@@ -1,0 +1,46 @@
+{
+  "maxTotalChars": 24000,
+  "maxDirectiveChars": 2000,
+  "maxDepth": 2,
+  "includeDnaInjections": true,
+  "secretPolicy": "skip",
+  "files": [
+    {
+      "path": "SOUL.md",
+      "role": "behavior",
+      "required": true,
+      "priority": 100
+    },
+    {
+      "path": "USER.md",
+      "role": "user-context",
+      "required": false,
+      "priority": 90
+    },
+    {
+      "path": "TOOLS.md",
+      "role": "operational-reference",
+      "required": false,
+      "priority": 70
+    },
+    {
+      "path": "dna.yaml",
+      "role": "governance-spec",
+      "required": false,
+      "priority": 80
+    }
+  ],
+  "commands": {
+    "dna": {
+      "executable": "dna",
+      "timeoutMs": 10000,
+      "maxChars": 2000
+    },
+    "example-readonly-cli": {
+      "executable": "/absolute/path/to/example-readonly-cli",
+      "allowedSubcommands": ["show", "list", "status"],
+      "timeoutMs": 5000,
+      "maxChars": 1500
+    }
+  }
+}

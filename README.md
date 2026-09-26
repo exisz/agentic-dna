@@ -20,6 +20,7 @@ Agentic DNA provides a structured governance layer for multi-agent systems — d
 - **Adaptive Cron** — Dynamic frequency adjustment
 - **Policy Injection** — Automatic cron and interactive session policies
 - **Directive Expansion** — `{{dna ...}}` directives in bootstrap files
+- **Codex Bridge** — Passive OpenClaw workspace hydration through trusted Codex hooks
 
 ## Requirements
 
@@ -41,6 +42,25 @@ dna help
 openclaw plugins install openclaw-dna
 openclaw gateway restart
 ```
+
+### Codex Plugin
+
+The Codex adapter loads `IDENTITY.md`, `SOUL.md`, `USER.md`, `TOOLS.md`, and
+`dna.yaml` at session start, then expands registered CLI directives without
+opening a shell. `AGENTS.md` remains Codex-native, and `MEMORY.md` is excluded
+by default to avoid injecting credentials or stale history. It intentionally
+registers no subagent hook, so delegated agents do not receive another copy of
+the workspace bootstrap context.
+
+```bash
+git clone https://github.com/exisz/agentic-dna.git
+codex plugin marketplace add "$(pwd)/agentic-dna/codex"
+codex plugin add agentic-dna@personal
+```
+
+Review and trust the hook with `/hooks`, then start a new task. See
+[`codex/README.md`](codex/README.md) for configuration, validation, and
+publishing details.
 
 ### From Source
 
@@ -134,12 +154,14 @@ make clean
 
 ## Repository Structure
 
-This is a **monorepo** that publishes two npm packages from a single repository:
+This is a **monorepo** containing two npm packages and one Codex repository
+marketplace:
 
 | Package | Description |
 |---------|-------------|
 | [`agentic-dna`](https://www.npmjs.com/package/agentic-dna) | The standalone `dna` CLI tool |
 | [`openclaw-dna`](https://www.npmjs.com/package/openclaw-dna) | The OpenClaw plugin (source: `openclaw/index.ts`) |
+| `agentic-dna@personal` | The Codex plugin (source: `codex/plugins/agentic-dna`) |
 
 ```
 agentic-dna/
@@ -153,6 +175,9 @@ agentic-dna/
 │   ├── skills/               # Bundled AgentSkills
 │   ├── package.json          # openclaw-dna package manifest
 │   └── openclaw.plugin.json  # OpenClaw plugin descriptor
+├── codex/                    # Codex repository marketplace
+│   ├── .agents/plugins/      # Marketplace catalog
+│   └── plugins/agentic-dna/  # Hook, skill, loader, and tests
 ├── scripts/                  # Utility/build scripts
 └── test/                     # Tests
 ```
@@ -168,11 +193,12 @@ agentic-dna/
 ├── scripts/          # CLI tools (TypeScript)
 ├── lib/              # Shared modules
 │   └── expand.ts     # {{dna}} directive expansion
-└── openclaw/         # OpenClaw plugin (npm: openclaw-dna)
-    ├── package.json
-    ├── openclaw.plugin.json
-    ├── index.ts      # Plugin entry — policy injection + directive expansion
-    └── skills/       # Bundled AgentSkills
+├── openclaw/         # OpenClaw plugin (npm: openclaw-dna)
+│   ├── package.json
+│   ├── openclaw.plugin.json
+│   ├── index.ts      # Plugin entry — policy injection + directive expansion
+│   └── skills/       # Bundled AgentSkills
+└── codex/            # Codex plugin marketplace and adapter
 ```
 
 ## License
